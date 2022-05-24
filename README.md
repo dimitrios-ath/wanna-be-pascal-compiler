@@ -1,3 +1,3 @@
-# wanna be pascal compiler
+# wanna-be-pascal-compiler
 
-My wanna be pascal compiler for a university course
+compiler design project for a university course
