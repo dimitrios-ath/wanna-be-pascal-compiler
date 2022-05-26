@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "tree.h"
+#include "src/tree.h"
 
 void yyerror(const char *s);
 int yylex();
@@ -1553,6 +1553,7 @@ int main () {
 	printf("\n-----------\nSyntax tree\n-----------\n\n");
 	update_tree_depths(root, 0);
 	preorder_tree_traversal(root);
+	printf("\n");
   	return ret;
 }
 

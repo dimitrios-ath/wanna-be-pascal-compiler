@@ -18,8 +18,9 @@ void preorder_tree_traversal(struct node *node) {
 		return;
 	else {
 		for (int i=0; i<node->depth; i++)
-			/* printf("    "); */
-			printf("◦   ");
+			// printf("    ");
+			// printf("◦   ");
+			printf("‣   ");
 		printf("%s\n", node->value);
 	}
 

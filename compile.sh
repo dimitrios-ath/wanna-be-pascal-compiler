@@ -11,6 +11,7 @@
 # ./compile.sh
 # ./SimplePascal < input_file
 
-yacc -d SimplePascal.y
-flex SimplePascal.l
-cc lex.yy.c y.tab.c tree.c -o SimplePascal
+yacc -d src/SimplePascal.y
+flex src/SimplePascal.l
+cc lex.yy.c y.tab.c src/tree.c -o SimplePascal
+rm lex.yy.c y.tab.c y.tab.h
