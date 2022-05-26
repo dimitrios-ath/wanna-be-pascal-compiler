@@ -20,6 +20,9 @@ node *root;
 		MULDIVANDOP_MUL MULDIVANDOP_DIV MULDIVANDOP_DIV_E MULDIVANDOP_MOD MULDIVANDOP_AND
 		RELOP_NE RELOP_LE RELOP_GE RELOP_LT RELOP_GT RCONST_REAL RCONST_INT RCONST_HEX RCONST_BIN
 
+%nonassoc T_THEN
+%nonassoc T_ELSE
+
 %nonassoc INOP RELOP_NE RELOP_LE RELOP_GE RELOP_LT RELOP_GT EQU
 %left	ADDOP_ADD ADDOP_SUB OROP
 %left	MULDIVANDOP_MUL MULDIVANDOP_DIV MULDIVANDOP_DIV_E MULDIVANDOP_MOD MULDIVANDOP_AND
@@ -42,7 +45,7 @@ node *root;
 %type <node> program header declarations constdefs constant_defs expression constant typedefs type_defs 
 			 type_def dims limit limits typename standard_type fields field identifiers vardefs variable_defs
 			 subprograms subprogram sub_header formal_parameters parameter_list pass comp_statement statements
-			 variable statement if_statement if_tail assignment expressions subprogram_call setexpression
+			 variable statement if_statement assignment expressions subprogram_call setexpression
 			 elexpressions elexpression io_statement read_list read_item while_statement for_statement
 			 iter_space with_statement write_list write_item
 
@@ -1298,7 +1301,7 @@ assignment	:	variable ASSIGN expression {
 				}
 			;
 
-if_statement	:	T_IF expression T_THEN statement if_tail {
+if_statement	:	T_IF expression T_THEN statement {
 						// printf("if_statement → T_IF expression T_THEN statement if_tail\n"); 
 						node *newnode = (node *) malloc(sizeof(node));
 						newnode->value = strdup("if_statement");
@@ -1311,25 +1314,26 @@ if_statement	:	T_IF expression T_THEN statement if_tail {
 						node_then->value = strdup("then");
 						$$->node3 = node_then;
 						$$->node4 = $4;
-						$$->node5 = $5;
+					}
+					| T_IF expression T_THEN statement T_ELSE statement {
+						// printf("if_statement → T_IF expression T_THEN statement if_tail\n"); 
+						node *newnode = (node *) malloc(sizeof(node));
+						newnode->value = strdup("if_statement");
+						$$ = newnode;
+						node *node_if = (node *) malloc(sizeof(node));
+						node_if->value = strdup("if");
+						$$->node1 = node_if;
+						$$->node2 = $2;
+						node *node_then = (node *) malloc(sizeof(node));
+						node_then->value = strdup("then");
+						$$->node3 = node_then;
+						$$->node4 = $4;
+						node *node_else = (node *) malloc(sizeof(node));
+						node_else->value = strdup("else");
+						$$->node5 = node_else;
+						$$->node6 = $6;
 					}
 				;
-
-if_tail	:	T_ELSE statement { 
-				// printf("if_tail → T_ELSE statement\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("if_tail");
-				$$ = newnode;
-				node *node_else = (node *) malloc(sizeof(node));
-				node_else->value = strdup("else");
-				$$->node1 = node_else;
-				$$->node2 = $2;
-			}
-		| 	{ 
-				// printf("if_tail → ε\n"); 
-				$$ = NULL;
-			}
-		;
 
 while_statement	:	T_WHILE expression T_DO statement { 
 						// printf("while_statement → T_WHILE expression T_DO statement\n"); 
