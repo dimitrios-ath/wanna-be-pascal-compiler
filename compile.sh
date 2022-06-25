@@ -13,5 +13,5 @@
 
 yacc -d src/SimplePascal.y
 flex src/SimplePascal.l
-cc lex.yy.c y.tab.c src/tree.c -o SimplePascal
+cc lex.yy.c y.tab.c src/tree.c src/hashtable.c -o SimplePascal
 rm lex.yy.c y.tab.c y.tab.h

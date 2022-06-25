@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "src/tree.h"
+#include "src/hashtable.h"
 
 void yyerror(const char *s);
 int yylex();
@@ -1549,6 +1550,16 @@ write_item	:	expression {
 
 int main () {
 	yytexts = (yytexts_ *) malloc(sizeof(yytexts_));
+	hashtable* hash_table = create_hashtable(10);
+	hashtable_insert(hash_table, "ahf", 1337, 1, 0);
+	hashtable_insert(hash_table, "akk", 1, 1, 0);
+	hashtable_insert(hash_table, ",kankka", 1337, 1, 0);
+	hashtable_insert(hash_table, "kas", 1, 1, 0);
+	hashtable_insert(hash_table, "kaka", 1337, 1, 0);
+	hashtable_insert(hash_table, "akjja", 1, 1, 0);
+	hashtable_insert(hash_table, "jahfnsdj", 1337, 1, 0);
+	hashtable_insert(hash_table, "atat", 1, 1, 0);
+	hashtable_get(hash_table, 0);
 	int ret = yyparse();
 	printf("\n-----------\nSyntax tree\n-----------\n\n");
 	update_tree_depths(root, 0);

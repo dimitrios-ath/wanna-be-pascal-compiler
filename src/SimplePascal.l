@@ -6,6 +6,7 @@
 
 extern yytexts_* yytexts;
 void yyerror(const char *);
+int id_or_keyword(char *s);
 %}
 
 %option noyywrap
@@ -24,7 +25,7 @@ MULDIVANDOP_DIV \/
 MULDIVANDOP_DIV_E DIV
 MULDIVANDOP_MOD MOD
 MULDIVANDOP_AND AND
-ID _?[a-zA-Z][a-zA-Z0-9_]*
+KEYWORD_OR_ID _?[a-zA-Z][a-zA-Z0-9_]*
 RCONST_REAL ((([1-9][0-9]*)|0|e?)\.(([0-9]*[1-9][0-9]*)|0)([E][+-]?(([1-9][0-9]*)|0))?)
 RCONST_INT (([1-9][0-9]*)|0|e?)E[+-]?[0-9]+
 RCONST_HEX 0H(([1-9A-F][0-9A-F]*)|0|e?)\.(([0-9A-F]*[1-9A-F][0-9A-F]*)|0)
@@ -38,37 +39,6 @@ WHITESPACE [ \t\r]+
 NEWLINE [\n]
 
 %%
-"program"           { return T_PROGRAM; }
-"const"             { return T_CONST; }
-"type"              { return T_TYPE; }
-"array"             { return T_ARRAY; }
-"set"               { return T_SET; }
-"of"                { return T_OF; }
-"record"            { return T_RECORD; }
-"var"               { return T_VAR; }
-"forward"           { return T_FORWARD; }
-"function"          { return T_FUNCTION; }
-"procedure"         { return T_PROCEDURE; }
-"integer"           { return T_INTEGER; }
-"real"              { return T_REAL; }
-"boolean"           { return T_BOOLEAN; }
-"char"              { return T_CHAR; }
-"begin"             { return T_BEGIN; }
-"end"               { return T_END; }
-"if"                { return T_IF; }
-"then"              { return T_THEN; }
-"else"              { return T_ELSE; }
-"while"             { return T_WHILE; }
-"do"                { return T_DO; }
-"for"               { return T_FOR; }
-"downto"            { return T_DOWNTO; }
-"to"                { return T_TO; }
-"with"              { return T_WITH; }
-"read"              { return T_READ; }
-"write"             { return T_WRITE; }
-"or"                { return OROP; }
-"not"               { return NOTOP; }
-"in"                { return INOP; }
 "("                 { return LPAREN; }
 ")"                 { return RPAREN; }
 ";"                 { return SEMI; }
@@ -95,22 +65,22 @@ NEWLINE [\n]
                         yylval.string = strdup(yytext);
                         return ICONST; 
                     }
-{RCONST_REAL}	        { 
+{RCONST_REAL}	    { 
                         yytexts->yytext[yytexts->slots++]=strdup(yytext);
                         yylval.string = strdup(yytext);
                         return RCONST_REAL; 
                     }
-{RCONST_INT}	        { 
+{RCONST_INT}	    { 
                         yytexts->yytext[yytexts->slots++]=strdup(yytext);
                         yylval.string = strdup(yytext);
                         return RCONST_INT; 
                     }
-{RCONST_HEX}	        { 
+{RCONST_HEX}	    { 
                         yytexts->yytext[yytexts->slots++]=strdup(yytext);
                         yylval.string = strdup(yytext);
                         return RCONST_HEX; 
                     }
-{RCONST_BIN}	        { 
+{RCONST_BIN}	    {
                         yytexts->yytext[yytexts->slots++]=strdup(yytext);
                         yylval.string = strdup(yytext);
                         return RCONST_BIN; 
@@ -127,10 +97,13 @@ NEWLINE [\n]
 {MULDIVANDOP_DIV_E}	{ return MULDIVANDOP_DIV_E;  }
 {MULDIVANDOP_MOD}	{ return MULDIVANDOP_MOD;  }
 {MULDIVANDOP_AND}	{ return MULDIVANDOP_AND;  }
-{ID}	            { 
-                        yytexts->yytext[yytexts->slots++]=strdup(yytext); 
-                        yylval.string = strdup(yytext);
-                        return ID;  
+{KEYWORD_OR_ID}	    {
+                        int val = id_or_keyword(yytext);
+                        if(val==ID) {
+                            yytexts->yytext[yytexts->slots++]=strdup(yytext); 
+                            yylval.string = strdup(yytext); 
+                        }
+                        return(val);
                     }
 {STRING}	        {
                         yytexts->yytext[yytexts->slots++]=strdup(yytext); 
@@ -144,6 +117,21 @@ NEWLINE [\n]
 <<EOF>>             { return 0; }
 
 %%
+
+#define N 31
+static char *kid[N] = {"program", "const", "type", "array", "set", "of", "record", "var", "forward", "function", "procedure", "integer", "real", "boolean", "char", "begin", "end", "if", "then", "else", "while", "do", "for", "downto", "to", "with", "read", "write", "or", "not", "in"};
+
+static int kval[N] = {T_PROGRAM, T_CONST, T_TYPE, T_ARRAY, T_SET, T_OF, T_RECORD, T_VAR, T_FORWARD, T_FUNCTION, T_PROCEDURE, T_INTEGER, T_REAL, T_BOOLEAN, T_CHAR, T_BEGIN, T_END, T_IF, T_THEN, T_ELSE, T_WHILE, T_DO, T_FOR, T_DOWNTO, T_TO, T_WITH, T_READ, T_WRITE, OROP, NOTOP, INOP};
+
+int id_or_keyword(char *s) {  
+    int i,k;
+
+    for(i=0; (i < N) && (strcmp(s,kid[i]) != 0); i++);
+    if(i < N)
+        return kval[i];
+    else
+        return ID;
+}
 
 void yyerror (const char * msg) {
     fprintf(stderr, "SimplePascal error at line %d: %s\n", yylineno, msg);
