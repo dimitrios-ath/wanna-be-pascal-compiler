@@ -2,13 +2,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "src/tree.h"
+#include "src/defs.h"
 #include "src/hashtable.h"
 
 void yyerror(const char *s);
 int yylex();
 extern int yylineno;
-node *root;
+
+node* parse_tree_root;
+node* ast_tree_root;
 
 %}
 
@@ -16,10 +18,10 @@ node *root;
 
 %token 	T_PROGRAM T_CONST T_TYPE T_ARRAY T_SET T_OF T_RECORD T_VAR T_FORWARD T_FUNCTION T_PROCEDURE
 		T_INTEGER T_REAL T_BOOLEAN T_CHAR T_BEGIN T_END T_IF T_THEN T_ELSE T_WHILE T_DO T_FOR 
-		T_DOWNTO T_TO T_WITH T_READ T_WRITE ID ADDOP_ADD ADDOP_SUB OROP NOTOP INOP LPAREN RPAREN 
-		SEMI DOT COMMA EQU COLON LBRACK RBRACK ASSIGN DOTDOT ICONST BCONST CCONST STRING
+		T_DOWNTO T_TO T_WITH T_READ T_WRITE ADDOP_ADD ADDOP_SUB OROP NOTOP INOP LPAREN RPAREN 
+		SEMI DOT COMMA EQU COLON LBRACK RBRACK ASSIGN DOTDOT
 		MULDIVANDOP_MUL MULDIVANDOP_DIV MULDIVANDOP_DIV_E MULDIVANDOP_MOD MULDIVANDOP_AND
-		RELOP_NE RELOP_LE RELOP_GE RELOP_LT RELOP_GT RCONST_REAL RCONST_INT RCONST_HEX RCONST_BIN
+		RELOP_NE RELOP_LE RELOP_GE RELOP_LT RELOP_GT 
 
 %nonassoc T_THEN
 %nonassoc T_ELSE
@@ -40,8 +42,11 @@ node *root;
 	char *operator_str;
 	char character;
 	int boolean;
-	struct node* node;
+	node* node;
+	parse_and_syntax_tree* parse_and_syntax_tree;
 }
+
+%token <string> ID ICONST BCONST CCONST STRING RCONST_REAL RCONST_INT RCONST_HEX RCONST_BIN
 
 %type <node> program header declarations constdefs constant_defs expression constant typedefs type_defs 
 			 type_def dims limit limits typename standard_type fields field identifiers vardefs variable_defs
@@ -54,939 +59,428 @@ node *root;
 
 program : 	header declarations subprograms comp_statement DOT { 
 				// printf("program → header declarations subprograms comp statement DOT\n");
-				root = (node *) malloc(sizeof(node));
-				root->value = strdup("program");
-				$$ = root;
-				root->node1 = $1;
-				root->node2 = $2;
-				root->node3 = $3;
-				root->node4 = $4;
-				node *node_semi = (node *) malloc(sizeof(node));
-				node_semi->value = strdup(".");
-				$$->node5 = node_semi;
+				ast_tree_root = make_node("program", NODETYPE_PROGRAM, NULL, $1, $2, $3, $4, NULL, NULL);
 			}
 		;
 
 header	: 	T_PROGRAM ID SEMI { 
 				// printf("header → T_PROGRAM ID SEMI\n");
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("header");
-				$$ = newnode;
-				node *node_program = (node *) malloc(sizeof(node));
-				node_program->value = strdup("program");
-				$$->node1 = node_program;
-				node *node_id = (node *) malloc(sizeof(node));
-				node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node2 = node_id;
-				node *node_semi = (node *) malloc(sizeof(node));
-				node_semi->value = strdup(";");
-				$$->node3 = node_semi;
-				remove_last_yytext_element();
+				symbol* symbol_id = new_symbol(pop_yytext_stack());
+				node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("header", NODETYPE_HEADER, NULL, node_program, node_id, node_semi, NULL, NULL, NULL);
 			}
 		;
 
 declarations	:	constdefs typedefs vardefs { 
 						// printf("declarations → constdefs typedefs vardefs\n");
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("declarations");
-						$$ = newnode;
-						newnode->node1 = $1;
-						newnode->node2 = $2;
-						newnode->node3 = $3;
+						$$ = make_node("declarations", NODETYPE_DECLARATIONS, NULL, $1, $2, $3, NULL, NULL, NULL);
 					}
 				;
 
 constdefs	:	T_CONST constant_defs SEMI { 
 					// printf("constdefs → T_CONST constant_defs SEMI\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("constdefs");
-					$$ = newnode;
-					node *node_const = (node *) malloc(sizeof(node));
-					node_const->value = strdup("const");
-					$$->node1 = node_const;
-					$$->node2 = $2;
-					node *node_semi = (node *) malloc(sizeof(node));
-					node_semi->value = strdup(";");
-					$$->node3 = node_semi;
-				}
+					$$ = make_node("constdefs", NODETYPE_CONSTDEFS, NULL, node_const, $2, node_semi, NULL, NULL, NULL);
+									}
 			|	{
 					// printf("CONSTDEFS → ε\n");
 					$$ = NULL;
-				}
+									}
 			;
 
 constant_defs	:	constant_defs SEMI ID EQU expression { 
 						// printf("constant_defs → constant_defs SEMI ID EQU expression\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("constant_defs");
-						$$ = newnode;
-						$$->node1 = $1;
-						node *node_semi = (node *) malloc(sizeof(node));
-						node_semi->value = strdup(";");
-						$$->node2 = node_semi;
-						node *node_id = (node *) malloc(sizeof(node));
-						node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-						$$->node3 = node_id;
-						node *node_equ = (node *) malloc(sizeof(node));
-						node_equ->value = strdup("=");
-						$$->node4 = node_equ;
-						$$->node5 = $5;
-						remove_last_yytext_element();
-					}
+						symbol* symbol_id = new_symbol(pop_yytext_stack());
+						node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+						$$ = make_node("constant_defs", NODETYPE_CONSTANT_DEFS, NULL, $1, node_semi, node_id, node_equ, $5, NULL);
+											}
 				| 	ID EQU expression {
 						// printf("constant_defs → ID EQU expression\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("constant_defs");
-						$$ = newnode;
-						node *node_id = (node *) malloc(sizeof(node));
-						node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-						$$->node1 = node_id;
-						node *node_equ = (node *) malloc(sizeof(node));
-						node_equ->value = strdup("=");
-						$$->node2 = node_equ;
-						$$->node3 = $3;
-						remove_last_yytext_element();
-					}
+						symbol* symbol_id = new_symbol(pop_yytext_stack());
+						node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+						$$ = make_node("constant_defs", NODETYPE_CONSTANT_DEFS, NULL, node_id, node_equ, $3, NULL, NULL, NULL);
+											}
 				;
 
 expression	:	expression RELOP_NE expression { 
 					// printf("expression → expression RELOP expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_relop = (node *) malloc(sizeof(node));
-					node_relop->value = strdup("<>");
-					$$->node2 = node_relop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_relop_ne", NODETYPE_EXPRESSION_RELOP_NE, NULL, $1, node_relop_ne, $3, NULL, NULL, NULL);
+									}
 			| 	expression RELOP_GE expression { 
 					// printf("expression → expression RELOP expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_relop = (node *) malloc(sizeof(node));
-					node_relop->value = strdup(">=");
-					$$->node2 = node_relop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_relop_ge", NODETYPE_EXPRESSION_RELOP_GE, NULL, $1, node_relop_ge, $3, NULL, NULL, NULL);
+									}
 			|	expression RELOP_LE expression { 
 					// printf("expression → expression RELOP expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_relop = (node *) malloc(sizeof(node));
-					node_relop->value = strdup("<=");
-					$$->node2 = node_relop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_relop_le", NODETYPE_EXPRESSION_RELOP_LE, NULL, $1, node_relop_le, $3, NULL, NULL, NULL);
+									}
 			|	expression RELOP_LT expression { 
 					// printf("expression → expression RELOP expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_relop = (node *) malloc(sizeof(node));
-					node_relop->value = strdup("<");
-					$$->node2 = node_relop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_relop_lt", NODETYPE_EXPRESSION_RELOP_LT, NULL, $1, node_relop_lt, $3, NULL, NULL, NULL);
+									}
 			|	expression RELOP_GT expression { 
 					// printf("expression → expression RELOP expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_relop = (node *) malloc(sizeof(node));
-					node_relop->value = strdup(">");
-					$$->node2 = node_relop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_relop_gt", NODETYPE_EXPRESSION_RELOP_GT, NULL, $1, node_relop_gt, $3, NULL, NULL, NULL);
+									}
 			|	expression EQU expression { 
 					// printf("expression → expression EQU expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_equ = (node *) malloc(sizeof(node));
-					node_equ->value = strdup("=");
-					$$->node2 = node_equ;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_equ", NODETYPE_EXPRESSION_EQU, NULL, $1, node_equ, $3, NULL, NULL, NULL);
+									}
 			|	expression INOP expression { 
 					// printf("expression → expression INOP expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_or = (node *) malloc(sizeof(node));
-					node_or->value = strdup("in");
-					$$->node2 = node_or;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_inop", NODETYPE_EXPRESSION_INOP, NULL, $1, node_in, $3, NULL, NULL, NULL);
+									}
 			|	expression OROP expression { 
 					// printf("expression → expression OROP expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_or = (node *) malloc(sizeof(node));
-					node_or->value = strdup("or");
-					$$->node2 = node_or;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_orop", NODETYPE_EXPRESSION_OROP, NULL, $1, node_or, $3, NULL, NULL, NULL);
+									}
 			|	expression ADDOP_ADD expression	{ 
 					// printf("expression → expression ADDOP expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_addop = (node *) malloc(sizeof(node));
-					node_addop->value = strdup("+");
-					$$->node2 = node_addop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_addop_add", NODETYPE_EXPRESSION_ADDOP_ADD, NULL, $1, node_addop_add, $3, NULL, NULL, NULL);
+									}
 			|	expression ADDOP_SUB expression	{ 
 					// printf("expression → expression ADDOP expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_addop = (node *) malloc(sizeof(node));
-					node_addop->value = strdup("-");
-					$$->node2 = node_addop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_addop_sub", NODETYPE_EXPRESSION_ADDOP_SUB, NULL, $1, node_addop_sub, $3, NULL, NULL, NULL);
+									}
 			|	expression MULDIVANDOP_MUL expression { 
 					// printf("expression → expression MULDIVANDOP expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_muldivandop = (node *) malloc(sizeof(node));
-					node_muldivandop->value = strdup("*");
-					$$->node2 = node_muldivandop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_muldivandop_mul", NODETYPE_EXPRESSION_MULDIVANDOP_MUL, NULL, $1, node_muldivandop_mul, $3, NULL, NULL, NULL);
+									}
 			|	expression MULDIVANDOP_DIV expression { 
 					// printf("expression → expression MULDIVANDOP expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_muldivandop = (node *) malloc(sizeof(node));
-					node_muldivandop->value = strdup("/");
-					$$->node2 = node_muldivandop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_muldivandop_div", NODETYPE_EXPRESSION_MULDIVANDOP_DIV, NULL, $1, node_muldivandop_div, $3, NULL, NULL, NULL);
+									}
 			|	expression MULDIVANDOP_DIV_E expression { 
 					// printf("expression → expression MULDIVANDOP expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_muldivandop = (node *) malloc(sizeof(node));
-					node_muldivandop->value = strdup("div");
-					$$->node2 = node_muldivandop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_muldivandop_div_e", NODETYPE_EXPRESSION_MULDIVANDOP_DIV_E, NULL, $1, node_muldivandop_div_e, $3, NULL, NULL, NULL);
+									}
 			|	expression MULDIVANDOP_MOD expression { 
 					// printf("expression → expression MULDIVANDOP expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_muldivandop = (node *) malloc(sizeof(node));
-					node_muldivandop->value = strdup("mod");
-					$$->node2 = node_muldivandop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression", NODETYPE_EXPRESSION, NULL, $1, node_muldivandop_mod, $3, NULL, NULL, NULL);
+									}
 			|	expression MULDIVANDOP_AND expression { 
 					// printf("expression → expression MULDIVANDOP expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_muldivandop = (node *) malloc(sizeof(node));
-					node_muldivandop->value = strdup("and");
-					$$->node2 = node_muldivandop;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expression_muldivandop_and", NODETYPE_EXPRESSION_MULDIVANDOP_AND, NULL, $1, node_muldivandop_and, $3, NULL, NULL, NULL);
+									}
 			|	ADDOP_ADD expression { 
 					// printf("expression → ADDOP expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					node *node_addop = (node *) malloc(sizeof(node));
-					node_addop->value = strdup("+");
-					$$->node1 = node_addop;
-					$$->node2 = $2;
-				}
+					$$ = make_node("expression_addop_add_unary", NODETYPE_EXPRESSION_ADDOP_ADD_UNARY, NULL, node_addop_add, $2, NULL, NULL, NULL, NULL);
+									}
 			|	ADDOP_SUB expression { 
 					// printf("expression → ADDOP expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					node *node_addop = (node *) malloc(sizeof(node));
-					node_addop->value = strdup("-");
-					$$->node1 = node_addop;
-					$$->node2 = $2;
-				}
-			|	NOTOP expression { 
+					$$ = make_node("expression_addop_sub_unary", NODETYPE_EXPRESSION_ADDOP_SUB_UNARY, NULL, node_addop_sub, $2, NULL, NULL, NULL, NULL);
+									}
+			|	NOTOP expression {
 					// printf("expression → NOTOP expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					node *node_not = (node *) malloc(sizeof(node));
-					node_not->value = strdup("not");
-					$$->node1 = node_not;
-					$$->node2 = $2;
-				}
+					$$ = make_node("expression_notop", NODETYPE_EXPRESSION_NOTOP, NULL, node_not, $2, NULL, NULL, NULL, NULL);
+									}
 			|	variable { 
 					// printf("expression → variable\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-				}
+					$$ = make_node("expression_variable", NODETYPE_EXPRESSION, NULL, $1, NULL, NULL, NULL, NULL, NULL);
+									}
 			|	ID LPAREN expressions RPAREN { 
 					// printf("expression → ID LPAREN expressions RPAREN\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_id;
-					node *node_lparen = (node *) malloc(sizeof(node));
-					node_lparen->value = strdup("(");
-					$$->node2 = node_lparen;
-					$$->node3 = $3;
-					node *node_rparen = (node *) malloc(sizeof(node));
-					node_rparen->value = strdup(")");
-					$$->node4 = node_rparen;
-					remove_last_yytext_element();
-				}
+					symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("expression_id_paren", NODETYPE_EXPRESSION_ID_PAREN, NULL, node_id, node_lparen, $3, node_rparen, NULL, NULL);
+									}
 			|	constant { 
 					// printf("expression → constant\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-				}
+					$$ = make_node("expression_constant", NODETYPE_EXPRESSION, NULL, $1, NULL, NULL, NULL, NULL, NULL);
+									}
 			|	LPAREN expression RPAREN { 
 					// printf("expression → LPAREN expression RPAREN\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					node *node_lparen = (node *) malloc(sizeof(node));
-					node_lparen->value = strdup("(");
-					$$->node1 = node_lparen;
-					$$->node2 = $2;
-					node *node_rparen = (node *) malloc(sizeof(node));
-					node_rparen->value = strdup(")");
-					$$->node3 = node_rparen;
-				}
-			|	setexpression { 
+					$$ = make_node("expression_paren", NODETYPE_EXPRESSION_PAREN, NULL, node_lparen, $2, node_rparen, NULL, NULL, NULL);
+									}
+			|	setexpression {
 					// printf("expression → setexpression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expression");
-					$$ = newnode;
-					$$->node1 = $1;
-				}
+					$$ = make_node("expression", NODETYPE_EXPRESSION, NULL, $1, NULL, NULL, NULL, NULL, NULL);
+									}
 			;	
 
 
 variable	:	ID { 
-					// printf("variable → ID\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("variable");
-					$$ = newnode;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_id;
-					remove_last_yytext_element();
-				}
+					// printf("variable → ID\n");
+					symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("variable", NODETYPE_VARIABLE, NULL, node_id, NULL, NULL, NULL, NULL, NULL);
+									}
 			|	variable DOT ID { 
 					// printf("variable → variable DOT ID\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("variable");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_dot = (node *) malloc(sizeof(node));
-					node_dot->value = strdup(".");
-					$$->node2 = node_dot;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node3 = node_id;
-					remove_last_yytext_element();
-				}
+					symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("variable", NODETYPE_VARIABLE, NULL, $1, node_dot, node_id, NULL, NULL, NULL);
+									}
 			|	variable LBRACK expressions RBRACK { 
 					// printf("variable → variable LBRACK expressions RBRACK\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("variable");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_lbrack = (node *) malloc(sizeof(node));
-					node_lbrack->value = strdup("[");
-					$$->node2 = node_lbrack;
-					$$->node3 = $3;
-					node *node_rbrack = (node *) malloc(sizeof(node));
-					node_rbrack->value = strdup("]");
-					$$->node4 = node_rbrack;
-				}
+					$$ = make_node("variable", NODETYPE_VARIABLE, NULL, $1, node_lbrack, $3, node_rbrack, NULL, NULL);
+									}
 			;
 
 expressions	:	expressions COMMA expression { 
 					// printf("expressions → expressions COMMA expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expressions");
-					$$ = newnode;
-					$$->node1 = $1; 
-					node *node_comma = (node *) malloc(sizeof(node));
-					node_comma->value = strdup(",");
-					$$->node2 = node_comma;
-					$$->node3 = $3;
-				}
+					$$ = make_node("expressions", NODETYPE_EXPRESSIONS, NULL, $1, node_comma, $3, NULL, NULL, NULL);
+									}
 			|	expression { 
 					// printf("expressions → expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("expressions");
-					$$ = newnode;
-					$$->node1 = $1;
-				}
+					$$ = make_node("expressions", NODETYPE_EXPRESSIONS, NULL, $1, NULL, NULL, NULL, NULL, NULL);
+									}
 			;
 
 constant 	:	ICONST { 
-					// printf("constant → ICONST\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("constant");
-					$$ = newnode;
-					node *node_iconst = (node *) malloc(sizeof(node));
-					node_iconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_iconst;
-					remove_last_yytext_element();
-				}
+					// printf("constant → ICONST\n");
+					symbol* symbol_iconst = new_symbol(pop_yytext_stack());
+					node* node_iconst = make_node("iconst", NODETYPE_ICONST, symbol_iconst, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("constant_iconst", NODETYPE_CONSTANT, NULL, node_iconst, NULL, NULL, NULL, NULL, NULL);
+									}
 			| 	RCONST_REAL { 
 					// printf("constant → RCONST\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("constant");
-					$$ = newnode;
-					node *node_rconst = (node *) malloc(sizeof(node));
-					node_rconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_rconst;
-					remove_last_yytext_element();
-				}
+					symbol* symbol_rconst_real = new_symbol(pop_yytext_stack());
+					node* node_rconst_real = make_node("rconst_real", NODETYPE_RCONST_REAL, symbol_rconst_real, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("constant_rconst_real", NODETYPE_CONSTANT, NULL, node_rconst_real, NULL, NULL, NULL, NULL, NULL);
+									}
 			| 	RCONST_INT { 
 					// printf("constant → RCONST\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("constant");
-					$$ = newnode;
-					node *node_rconst = (node *) malloc(sizeof(node));
-					node_rconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_rconst;
-					remove_last_yytext_element();
-				}
+					symbol* symbol_rconst_int = new_symbol(pop_yytext_stack());
+					node* node_rconst_int = make_node("rconst_int", NODETYPE_RCONST_INT, symbol_rconst_int, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("constant_rconst_int", NODETYPE_CONSTANT, NULL, node_rconst_int, NULL, NULL, NULL, NULL, NULL);
+									}
 			| 	RCONST_HEX { 
-					// printf("constant → RCONST\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("constant");
-					$$ = newnode;
-					node *node_rconst = (node *) malloc(sizeof(node));
-					node_rconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_rconst;
-					remove_last_yytext_element();
-				}
+					// printf("constant → RCONST\n");
+					symbol* symbol_rconst_hex = new_symbol(pop_yytext_stack());
+					node* node_rconst_hex = make_node("rconst_hex", NODETYPE_RCONST_HEX, symbol_rconst_hex, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("constant_rconst_hex", NODETYPE_CONSTANT, NULL, node_rconst_hex, NULL, NULL, NULL, NULL, NULL);
+									}
 			| 	RCONST_BIN { 
 					// printf("constant → RCONST\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("constant");
-					$$ = newnode;
-					node *node_rconst = (node *) malloc(sizeof(node));
-					node_rconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_rconst;
-					remove_last_yytext_element();
-				}
+					symbol* symbol_rconst_bin = new_symbol(pop_yytext_stack());
+					node* node_rconst_bin = make_node("rconst_bin", NODETYPE_RCONST_BIN, symbol_rconst_bin, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("constant_rconst_bin", NODETYPE_CONSTANT, NULL, node_rconst_bin, NULL, NULL, NULL, NULL, NULL);
+									}
 			| 	BCONST { 
 					// printf("constant → BCONST\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("constant");
-					$$ = newnode;
-					node *node_bconst = (node *) malloc(sizeof(node));
-					node_bconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_bconst;
-					remove_last_yytext_element();
-				}
+					symbol* symbol_bconst = new_symbol(pop_yytext_stack());
+					node* node_bconst = make_node("bconst", NODETYPE_BCONST, symbol_bconst, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("constant_bconst", NODETYPE_CONSTANT, NULL, node_bconst, NULL, NULL, NULL, NULL, NULL);
+									}
 			| 	CCONST { 
 					// printf("constant → CCONST\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("constant");
-					$$ = newnode;
-					node *node_cconst = (node *) malloc(sizeof(node));
-					node_cconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_cconst;
-					remove_last_yytext_element();
-				}
+					symbol* symbol_cconst = new_symbol(pop_yytext_stack());
+					node* node_cconst = make_node("cconst", NODETYPE_CCONST, symbol_cconst, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("constant_cconst", NODETYPE_CONSTANT, NULL, node_cconst, NULL, NULL, NULL, NULL, NULL);
+									}
 			;
 
 setexpression	: 	LBRACK elexpressions RBRACK { 
 						// printf("setexpression → LBRACK elexpressions RBRACK\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("setexpression");
-						$$ = newnode;
-						node *node_lbrack = (node *) malloc(sizeof(node));
-						node_lbrack->value = strdup("[");
-						$$->node1 = node_lbrack;
-						$$->node2 = $2;
-						node *node_rbrack = (node *) malloc(sizeof(node));
-						node_rbrack->value = strdup("]");
-						$$->node3 = node_rbrack;
-					}
+						$$ = make_node("setexpression", NODETYPE_SETEXPRESSION, NULL, node_lbrack, $2, node_rbrack, NULL, NULL, NULL);
+											}
 				| 	LBRACK RBRACK { 
 						// printf("setexpression → LBRACK RBRACK\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("setexpression");
-						$$ = newnode;
-						node *node_lbrack = (node *) malloc(sizeof(node));
-						node_lbrack->value = strdup("[");
-						$$->node1 = node_lbrack;
-						node *node_rbrack = (node *) malloc(sizeof(node));
-						node_rbrack->value = strdup("]");
-						$$->node2 = node_rbrack;
-					}
+						$$ = make_node("setexpression", NODETYPE_SETEXPRESSION, NULL, node_lbrack, node_rbrack, NULL, NULL, NULL, NULL);
+											}
 				;
 
 elexpressions	:	elexpressions COMMA elexpression { 
 						// printf("elexpressions → elexpressions COMMA elexpression\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("elexpressions");
-						$$ = newnode;
-						$$->node1 = $1;
-						node *node_comma = (node *) malloc(sizeof(node));
-						node_comma->value = strdup(",");
-						$$->node2 = node_comma;
-						$$->node3 = $3;
-					}
+						$$ = make_node("elexpressions", NODETYPE_ELEXPRESSIONS, NULL, $1, node_comma, $3, NULL, NULL, NULL);
+											}
 				|	elexpression {
 						// printf("elexpressions → elexpression\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("elexpressions");
-						$$ = newnode;
-						$$->node1 = $1;
-					}
+						$$ = make_node("elexpressions", NODETYPE_ELEXPRESSIONS, NULL, $1, NULL, NULL, NULL, NULL, NULL);
+											}
 				;
 
 elexpression	:	expression DOTDOT expression { 
 						// printf("elexpression → expression DOTDOT expression\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("elexpression");
-						$$ = newnode;
-						$$->node1 = $1;
-						node *node_dotdot = (node *) malloc(sizeof(node));
-						node_dotdot->value = strdup("..");
-						$$->node2 = node_dotdot;
-						$$->node3 = $3;
-					}
+						$$ = make_node("elexpression", NODETYPE_ELEXPRESSION, NULL, $1, node_dotdot, $3, NULL, NULL, NULL);
+											}
 				|	expression { 
 						// printf("elexpression → expression\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("elexpression");
-						$$ = newnode;
-						$$->node1 = $1;
-					}
+						$$ = make_node("elexpression", NODETYPE_ELEXPRESSION, NULL, $1, NULL, NULL, NULL, NULL, NULL);
+											}
 				;
 
 typedefs	:	T_TYPE type_defs SEMI	{
 					// printf("typedefs → T_TYPE type_defs SEMI\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("typedefs");
-					$$ = newnode;
-					node *node_type = (node *) malloc(sizeof(node));
-					node_type->value = strdup("type");
-					$$->node1 = node_type;
-					$$->node2 = $2;
-					node *node_semi = (node *) malloc(sizeof(node));
-					node_semi->value = strdup(";");
-					$$->node3 = node_semi;
-				}
-			| 	{ 
+					$$ = make_node("typedefs", NODETYPE_TYPEDEFS, NULL, node_type, $2, node_semi, NULL, NULL, NULL);
+									}
+			| 	{
 					// printf("typedefs → ε\n"); 
 					$$ = NULL;
-				}
+									}
 			;
 
 type_defs	:	type_defs SEMI ID EQU type_def { 
 					// printf("type_defs → type_defs SEMI ID EQU type_def\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("type_defs");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_semi = (node *) malloc(sizeof(node));
-					node_semi->value = strdup(";");
-					$$->node2 = node_semi;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node3 = node_id;
-					node *node_equ = (node *) malloc(sizeof(node));
-					node_equ->value = strdup("=");
-					$$->node4 = node_equ;
-					$$->node5 = $5;
-					remove_last_yytext_element();
-				}
+					symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("type_defs", NODETYPE_TYPE_DEFS, NULL, $1, node_semi, node_id, node_equ, $5, NULL);
+									}
 			| 	ID EQU type_def { 
 					// printf("type_defs → ID EQU type_def\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("type_defs");
-					$$ = newnode;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_id;
-					node *node_equ = (node *) malloc(sizeof(node));
-					node_equ->value = strdup("=");
-					$$->node2 = node_equ;
-					$$->node3 = $3;
-					remove_last_yytext_element();
-				}
+					symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("type_defs", NODETYPE_TYPE_DEFS, NULL, node_id, node_equ, $3, NULL, NULL, NULL);
+									}
 			;
 
 type_def	:	T_ARRAY LBRACK dims RBRACK T_OF typename { 
 					// printf("type_def → T_ARRAY LBRACK dims RBRACK T_OF typename\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("type_def");
-					$$ = newnode;
-					node *node_array = (node *) malloc(sizeof(node));
-					node_array->value = strdup("array");
-					$$->node1 = node_array;
-					node *node_lbrack = (node *) malloc(sizeof(node));
-					node_lbrack->value = strdup("[");
-					$$->node2 = node_lbrack;
-					$$->node3 = $3;
-					node *node_rbrack = (node *) malloc(sizeof(node));
-					node_rbrack->value = strdup("]");
-					$$->node4 = node_rbrack;
-					node *node_of = (node *) malloc(sizeof(node));
-					node_of->value = strdup("of");
-					$$->node5 = node_of;
-					$$->node6 = $6;
-				}
+					$$ = make_node("type_def", NODETYPE_TYPE_DEF, NULL, node_array, node_lbrack, $3, node_rbrack, node_of, $6);
+									}
 			|	T_SET T_OF typename { 
 					// printf("type_def → T_SET T_OF typename\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("type_def");
-					$$ = newnode;
-					node *node_set = (node *) malloc(sizeof(node));
-					node_set->value = strdup("set");
-					$$->node1 = node_set;
-					node *node_of = (node *) malloc(sizeof(node));
-					node_of->value = strdup("of");
-					$$->node2 = node_of;
-					$$->node3 = $3;
-				}
+					$$ = make_node("type_def", NODETYPE_TYPE_DEF, NULL, node_set, node_of, $3, NULL, NULL, NULL);
+									}
 			|	T_RECORD fields T_END { 
 					// printf("type_def → T_RECORD fields T_END\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("type_def");
-					$$ = newnode;
-					node *node_record = (node *) malloc(sizeof(node));
-					node_record->value = strdup("record");
-					$$->node1 = node_record;
-					$$->node2 = $2;
-					node *node_end = (node *) malloc(sizeof(node));
-					node_end->value = strdup("end");
-					$$->node3 = node_end;
-				}
+					$$ = make_node("type_def", NODETYPE_TYPE_DEF, NULL, node_record, $2, node_end, NULL, NULL, NULL);
+									}
 			|	LPAREN identifiers RPAREN { 
 					// printf("type_def → LPAREN identifiers RPAREN\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("type_def");
-					$$ = newnode;
-					node *node_lparen = (node *) malloc(sizeof(node));
-					node_lparen->value = strdup("(");
-					$$->node1 = node_lparen;
-					$$->node2 = $2;
-					node *node_rparen = (node *) malloc(sizeof(node));
-					node_rparen->value = strdup(")");
-					$$->node3 = node_rparen;
-				}
+					$$ = make_node("type_def", NODETYPE_TYPE_DEF, NULL, node_lparen, $2, node_rparen, NULL, NULL, NULL);
+									}
 			|	limit DOTDOT limit { 
 					// printf("type_def → limit DOTDOT limit\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("type_def");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_dotdot = (node *) malloc(sizeof(node));
-					node_dotdot->value = strdup("..");
-					$$->node2 = node_dotdot;
-					$$->node3 = $3;
-				}
+					$$ = make_node("type_def", NODETYPE_TYPE_DEF, NULL, $1, node_dotdot, $3, NULL, NULL, NULL);
+									}
 			;
 
 dims	:	dims COMMA limits { 
 				// printf("dims → dims COMMA limits\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("dims");
-				$$ = newnode;
-				$$->node1 = $1;
-				node *node_comma = (node *) malloc(sizeof(node));
-				node_comma->value = strdup(",");
-				$$->node2 = node_comma;
-				$$->node3 = $3;
-			}
+				$$ = make_node("dims", NODETYPE_DIMS, NULL, $1, node_comma, $3, NULL, NULL, NULL);
+							}
 		| 	limits { 
 				// printf("dims → limits\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("dims");
-				$$ = newnode;
-				$$->node1 = $1;
-			}
+				$$ = make_node("dims", NODETYPE_DIMS, NULL, $1, NULL, NULL, NULL, NULL, NULL);
+							}
 		;
 
 limits	:	limit DOTDOT limit { 
 				// printf("limits → limit DOTDOT limit\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limits");
-				$$ = newnode;
-				$$->node1 = $1;
-				node *node_dotdot = (node *) malloc(sizeof(node));
-				node_dotdot->value = strdup("..");
-				$$->node2 = node_dotdot;
-				$$->node3 = $3;
-			}
+				$$ = make_node("limits", NODETYPE_LIMITS, NULL, $1, node_dotdot, $3, NULL, NULL, NULL);
+							}
 		|	ID { 
 				// printf("limits → ID\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limits");
-				$$ = newnode;
-				node *node_id = (node *) malloc(sizeof(node));
-				node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node1 = node_id;
-				remove_last_yytext_element();
-			}
+				symbol* symbol_id = new_symbol(pop_yytext_stack());
+				node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("limits", NODETYPE_LIMITS, NULL, node_id, NULL, NULL, NULL, NULL, NULL);
+							}
 		;
 
 limit	:	ADDOP_ADD ICONST { 
 				// printf("limit → ADDOP ICONST\n");
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limit");
-				$$ = newnode; 
-				node *node_addop_add = (node *) malloc(sizeof(node));
-				node_addop_add->value = strdup("+");
-				$$->node1 = node_addop_add;
-				node *node_iconst = (node *) malloc(sizeof(node));
-				node_iconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node2 = node_iconst;
-				remove_last_yytext_element();
-			}
+				symbol* symbol_iconst = new_symbol(pop_yytext_stack());
+				node* node_iconst = make_node("iconst", NODETYPE_ICONST, symbol_iconst, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("limit", NODETYPE_LIMIT_ADDOP_ADD_ICONST, NULL, node_addop_add, node_iconst, NULL, NULL, NULL, NULL);
+							}
 		|	ADDOP_SUB ICONST { 
 				// printf("limit → ADDOP ICONST\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limit");
-				$$ = newnode;
-				node *node_addop_sub = (node *) malloc(sizeof(node));
-				node_addop_sub->value = strdup("-");
-				$$->node1 = node_addop_sub;
-				node *node_iconst = (node *) malloc(sizeof(node));
-				node_iconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node2 = node_iconst;
-				remove_last_yytext_element();
-			}
+				symbol* symbol_iconst = new_symbol(pop_yytext_stack());
+				node* node_iconst = make_node("iconst", NODETYPE_LIMIT_ADDOP_SUB_ICONST, symbol_iconst, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("limit", NODETYPE_LIMIT_ADDOP_SUB_ICONST, NULL, node_addop_sub, node_iconst, NULL, NULL, NULL, NULL);
+											}
 		| 	ADDOP_ADD ID { 
 				// printf("limit → ADDOP ID\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limit");
-				$$ = newnode;
-				node *node_addop_add = (node *) malloc(sizeof(node));
-				node_addop_add->value = strdup("+");
-				$$->node1 = node_addop_add;
-				node *node_id = (node *) malloc(sizeof(node));
-				node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node2 = node_id;
-				remove_last_yytext_element();
-			}
+				symbol* symbol_id = new_symbol(pop_yytext_stack());
+				node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("limit", NODETYPE_LIMIT_ADDOP_ADD_ID, NULL, node_addop_add, node_id, NULL, NULL, NULL, NULL);
+							}
 		| 	ADDOP_SUB ID { 
 				// printf("limit → ADDOP ID\n");
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limit");
-				$$ = newnode;
-				node *node_addop_sub = (node *) malloc(sizeof(node));
-				node_addop_sub->value = strdup("-");
-				$$->node1 = node_addop_sub;
-				node *node_id = (node *) malloc(sizeof(node));
-				node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node2 = node_id;
-				remove_last_yytext_element();
-			}
+								symbol* symbol_id = new_symbol(pop_yytext_stack());
+				node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("limit", NODETYPE_LIMIT, NULL, node_addop_sub, node_id, NULL, NULL, NULL, NULL);
+							}
 		| 	ICONST { 
 				// printf("limit → ICONST\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limit");
-				$$ = newnode;
-				node *node_iconst = (node *) malloc(sizeof(node));
-				node_iconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node1 = node_iconst;
-				remove_last_yytext_element();
+				symbol* symbol_iconst = new_symbol(pop_yytext_stack());
+				node* node_iconst = make_node("iconst", NODETYPE_ICONST, symbol_iconst, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("limit", NODETYPE_LIMIT, NULL, node_iconst, NULL, NULL, NULL, NULL, NULL);
 			}
 		| 	CCONST { 
 				// printf("limit → CCONST\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limit");
-				$$ = newnode;
-				node *node_cconst = (node *) malloc(sizeof(node));
-				node_cconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node1 = node_cconst;
-				remove_last_yytext_element();
-			}
+								symbol* symbol_cconst = new_symbol(pop_yytext_stack());
+				node* node_cconst = make_node("cconst", NODETYPE_CCONST, symbol_cconst, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("limit", NODETYPE_LIMIT, NULL, node_cconst, NULL, NULL, NULL, NULL, NULL);
+							}
 		| 	BCONST { 
 				// printf("limit → BCONST\n");
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limit");
-				$$ = newnode;
-				node *node_bconst = (node *) malloc(sizeof(node));
-				node_bconst->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node1 = node_bconst;
-				remove_last_yytext_element();
-			}
+								symbol* symbol_bconst = new_symbol(pop_yytext_stack());
+				node* node_bconst = make_node("bconst", NODETYPE_BCONST, symbol_bconst, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("limit", NODETYPE_LIMIT, NULL, node_bconst, NULL, NULL, NULL, NULL, NULL);
+							}
 		| 	ID { 
 				// printf("limit → ID\n");
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("limit");
-				$$ = newnode;
-				node *node_id = (node *) malloc(sizeof(node));
-				node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-				$$->node1 = node_id;
-				remove_last_yytext_element();
-			}
+								symbol* symbol_id = new_symbol(pop_yytext_stack());
+				node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+				$$ = make_node("limit", NODETYPE_LIMIT, NULL, node_id, NULL, NULL, NULL, NULL, NULL);
+							}
 		;
 
 typename	:	standard_type { 
 					// printf("typename → standard_type\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("typename");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("typename", NODETYPE_TYPENAME, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	ID { 
 					// printf("typename → ID\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("typename");
-					$$ = newnode;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_id;
-					remove_last_yytext_element();
+					symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("typename", NODETYPE_TYPENAME, NULL, node_id, NULL, NULL, NULL, NULL, NULL);
 				}
 			;
 
 standard_type	:	T_INTEGER { 
 						// printf("standard_type → T_INTEGER\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("standard_type");
-						$$ = newnode;
-						node *node_integer = (node *) malloc(sizeof(node));
-						node_integer->value = strdup("integer");
-						$$->node1 = node_integer;
+						$$ = make_node("standard_type", NODETYPE_STANDARD_TYPE, NULL, node_integer, NULL, NULL, NULL, NULL, NULL);
 					}
 				| 	T_REAL { 
 						// printf("standard_type → T_REAL\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("standard_type");
-						$$ = newnode;
-						node *node_integer = (node *) malloc(sizeof(node));
-						node_integer->value = strdup("real");
-						$$->node1 = node_integer;
+						$$ = make_node("standard_type", NODETYPE_STANDARD_TYPE, NULL, node_real, NULL, NULL, NULL, NULL, NULL);
 					}
 				| 	T_BOOLEAN { 
 						// printf("standard_type → T_BOOLEAN\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("standard_type");
-						$$ = newnode;
-						node *node_integer = (node *) malloc(sizeof(node));
-						node_integer->value = strdup("boolean");
-						$$->node1 = node_integer;
+						$$ = make_node("standard_type", NODETYPE_STANDARD_TYPE, NULL, node_boolean, NULL, NULL, NULL, NULL, NULL);
 					}
 				| 	T_CHAR { 
 						// printf("standard_type → T_CHAR\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("standard_type");
-						$$ = newnode;
-						node *node_integer = (node *) malloc(sizeof(node));
-						node_integer->value = strdup("char");
-						$$->node1 = node_integer;
+						$$ = make_node("standard_type", NODETYPE_STANDARD_TYPE, NULL, node_char, NULL, NULL, NULL, NULL, NULL);
 					}
 				;
 
 fields	:	fields SEMI field { 
 				// printf("fields → fields SEMI field\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("fields");
-				$$ = newnode;
-				$$->node1 = $1;
-				node *node_semi = (node *) malloc(sizeof(node));
-				node_semi->value = strdup(";");
-				$$->node2 = node_semi;
-				$$->node3 = $3;
+				$$ = make_node("fields", NODETYPE_FIELDS, NULL, $1, node_semi, $3, NULL, NULL, NULL);
 			}
 		| 	field { 
 				// printf("fields → field\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("fields");
-				$$ = newnode;
-				$$->node1 = $1;
+				$$ = make_node("fields", NODETYPE_FIELDS, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 			}
 		;
 
 field	:	identifiers COLON typename { 
 				// printf("field → identifiers COLON typename\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("field");
-				$$ = newnode;
-				$$->node1 = $1;
-				node *node_colon = (node *) malloc(sizeof(node));
-				node_colon->value = strdup(":");
-				$$->node2 = node_colon;
-				$$->node3 = $3;
+				$$ = make_node("field", NODETYPE_FIELD, NULL, $1, node_colon, $3, NULL, NULL, NULL);
 			}
 		;
 
 identifiers	:	identifiers COMMA ID { 
 					// printf("identifiers → identifiers COMMA ID\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("identifiers");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_comma = (node *) malloc(sizeof(node));
-					node_comma->value = strdup(",");
-					$$->node2 = node_comma;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node3 = node_id;
-					remove_last_yytext_element();
-				}
+										symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("identifiers", NODETYPE_IDENTIFIERS, NULL, $1, node_comma, node_id, NULL, NULL, NULL);
+									}
 			|	ID { 
 					// printf("identifiers → ID\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("identifiers");
-					$$ = newnode;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_id;
-					remove_last_yytext_element();
-				}
+										symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("identifiers", NODETYPE_IDENTIFIERS, NULL, node_id, NULL, NULL, NULL, NULL, NULL);
+									}
 			;
 
 vardefs	:	T_VAR variable_defs SEMI { 
 				// printf("vardefs → T_VAR variable_defs SEMI\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("vardefs");
-				$$ = newnode;
-				node *node_var = (node *) malloc(sizeof(node));
-				node_var->value = strdup("var");
-				$$->node1 = node_var;
-				$$->node2 = $2;
-				node *node_semi = (node *) malloc(sizeof(node));
-				node_semi->value = strdup(";");
-				$$->node3 = node_semi;
+				$$ = make_node("vardefs", NODETYPE_VARDEFS, NULL, node_var, $2, node_semi, NULL, NULL, NULL);
 			}
 		| 	{ 
 				// printf("vardefs → ε\n");
@@ -996,42 +490,17 @@ vardefs	:	T_VAR variable_defs SEMI {
 
 variable_defs	:	variable_defs SEMI identifiers COLON typename { 
 						// printf("variable_defs → variable_defs SEMI identifiers COLON typename\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("variable_defs");
-						$$ = newnode;
-						$$->node1 = $1;
-						node *node_semi = (node *) malloc(sizeof(node));
-						node_semi->value = strdup(";");
-						$$->node2 = node_semi;
-						$$->node3 = $3;
-						node *node_colon = (node *) malloc(sizeof(node));
-						node_colon->value = strdup(":");
-						$$->node4 = node_colon;
-						$$->node5 = $5;
+						$$ = make_node("variable_defs", NODETYPE_VARIABLE_DEFS, NULL, $1, node_semi, $3, node_colon, $5, NULL);
 					}
 				| 	identifiers COLON typename {
 						// printf("variable_defs → identifiers COLON typename\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("variable_defs");
-						$$ = newnode;
-						$$->node1 = $1;
-						node *node_colon = (node *) malloc(sizeof(node));
-						node_colon->value = strdup(":");
-						$$->node2 = node_colon;
-						$$->node3 = $3;
+						$$ = make_node("variable_defs", NODETYPE_VARIABLE_DEFS, NULL, $1, node_colon, $3, NULL, NULL, NULL);
 					}
 				;
 
 subprograms	:	subprograms subprogram SEMI { 
 					// printf("subprograms → subprograms subprogram SEMI\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("subprograms");
-					$$ = newnode;
-					$$->node1 = $1;
-					$$->node2 = $2;
-					node *node_semi = (node *) malloc(sizeof(node));
-					node_semi->value = strdup(";");
-					$$->node3 = node_semi;
+					$$ = make_node("subprograms", NODETYPE_SUBPROGRAMS, NULL, $1, $2, node_semi, NULL, NULL, NULL);
 				}
 			| 	{
 					// printf("subprograms → ε\n");
@@ -1041,91 +510,37 @@ subprograms	:	subprograms subprogram SEMI {
 
 subprogram	:	sub_header SEMI T_FORWARD { 
 					// printf("subprogram → sub_header SEMI T_FORWARD\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("subprogram");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_semi = (node *) malloc(sizeof(node));
-					node_semi->value = strdup(";");
-					$$->node2 = node_semi;
-					node *node_forward = (node *) malloc(sizeof(node));
-					node_forward->value = strdup("forward");
-					$$->node3 = node_forward;
+					$$ = make_node("subprogram", NODETYPE_SUBPROGRAM, NULL, $1, node_semi, node_forward, NULL, NULL, NULL);
 				}
 			| 	sub_header SEMI declarations subprograms comp_statement { 
 					// printf("subprogram → sub_header SEMI declarations subprograms comp_statement\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("subprogram");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_semi = (node *) malloc(sizeof(node));
-					node_semi->value = strdup(";");
-					$$->node2 = node_semi;
-					$$->node3 = $3;
-					$$->node4 = $4;
-					$$->node5 = $5;
+					$$ = make_node("subprogram", NODETYPE_SUBPROGRAM, NULL, $1, node_semi, $3, $4, $5, NULL);
 				}
 			;
 
 sub_header	:	T_FUNCTION ID formal_parameters COLON standard_type { 
 					// printf("sub_header → T_FUNCTION ID formal_parameters COLON standard_type\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("sub_header");
-					$$ = newnode;
-					node *node_function = (node *) malloc(sizeof(node));
-					node_function->value = strdup("function");
-					$$->node1 = node_function;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node2 = node_id;
-					$$->node3 = $3;
-					node *node_colon = (node *) malloc(sizeof(node));
-					node_colon->value = strdup(":");
-					$$->node4 = node_colon;
-					$$->node5 = $5;
-					remove_last_yytext_element();
-				}
+										symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("sub_header", NODETYPE_SUB_HEADER, NULL, node_function, node_id, $3, node_colon, $5, NULL);
+									}
 			|	T_PROCEDURE ID formal_parameters { 
 					// printf("sub_header → T_PROCEDURE ID formal_parameters\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("sub_header");
-					$$ = newnode;
-					node *node_procedure = (node *) malloc(sizeof(node));
-					node_procedure->value = strdup("procedure");
-					$$->node1 = node_procedure;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node2 = node_id;
-					$$->node3 = $3;
-					remove_last_yytext_element();
-				}
+										symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("sub_header", NODETYPE_SUB_HEADER, NULL, node_procedure, node_id, $3, NULL, NULL, NULL);
+									}
 			|	T_FUNCTION ID { 
 					// printf("sub_header → T_FUNCTION ID\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("sub_header");
-					$$ = newnode;
-					node *node_function = (node *) malloc(sizeof(node));
-					node_function->value = strdup("function");
-					$$->node1 = node_function;
-					node *node_id = (node *) malloc(sizeof(node));
-					node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node2 = node_id;
-					remove_last_yytext_element();
-				}
+										symbol* symbol_id = new_symbol(pop_yytext_stack());
+					node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("sub_header", NODETYPE_SUB_HEADER, NULL, node_function, node_id, NULL, NULL, NULL, NULL);
+									}
 			;
 
 formal_parameters	:	LPAREN parameter_list RPAREN { 
 							// printf("formal_parameters → LPAREN parameter_list RPAREN\n"); 
-							node *newnode = (node *) malloc(sizeof(node));
-							newnode->value = strdup("formal_parameters");
-							$$ = newnode;
-							node *node_lparen = (node *) malloc(sizeof(node));
-							node_lparen->value = strdup("(");
-							$$->node1 = node_lparen;
-							$$->node2 = $2;
-							node *node_rparen = (node *) malloc(sizeof(node));
-							node_rparen->value = strdup(")");
-							$$->node3 = node_rparen;
+							$$ = make_node("formal_parameters", NODETYPE_FORMAL_PARAMETERS, NULL, node_lparen, $2, node_rparen, NULL, NULL, NULL);
 						}
 					| 	{ 
 							// printf("formal_parameters → ε\n"); 
@@ -1135,42 +550,17 @@ formal_parameters	:	LPAREN parameter_list RPAREN {
 
 parameter_list	:	parameter_list SEMI pass identifiers COLON typename { 
 						// printf("parameter_list → parameter_list SEMI pass identifiers COLON typename\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("parameter_list");
-						$$ = newnode;
-						$$->node1 = $1;
-						node *node_semi = (node *) malloc(sizeof(node));
-						node_semi->value = strdup(";");
-						$$->node2 = node_semi;
-						$$->node3 = $3;
-						$$->node4 = $4;
-						node *node_colon = (node *) malloc(sizeof(node));
-						node_colon->value = strdup(":");
-						$$->node5 = node_colon;
-						$$->node6 = $6;
+						$$ = make_node("parameter_list", NODETYPE_PARAMETER_LIST, NULL, $1, node_semi, $3, $4, node_colon, $6);
 					}
 				| 	pass identifiers COLON typename { 
 						// printf("parameter_list → pass identifiers COLON typename\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("parameter_list");
-						$$ = newnode;
-						$$->node1 = $1;
-						$$->node2 = $2;
-						node *node_colon = (node *) malloc(sizeof(node));
-						node_colon->value = strdup(":");
-						$$->node3 = node_colon;
-						$$->node4 = $4;
+						$$ = make_node("parameter_list", NODETYPE_PARAMETER_LIST, NULL, $1, $2, node_colon, $4, NULL, NULL);
 					}
 				;
 
 pass	:	T_VAR { 
 				// printf("pass → T_VAR\n"); 
-				node *newnode = (node *) malloc(sizeof(node));
-				newnode->value = strdup("pass");
-				$$ = newnode;
-				node *node_var = (node *) malloc(sizeof(node));
-				node_var->value = strdup("var");
-				$$->node1 = node_var;
+				$$ = make_node("pass", NODETYPE_PASS, NULL, node_var, NULL, NULL, NULL, NULL, NULL);
 			}
 		| 	{ 
 				// printf("pass → ε\n"); 
@@ -1180,94 +570,51 @@ pass	:	T_VAR {
 
 comp_statement	:	T_BEGIN statements T_END { 
 						// printf("comp_statement → T_BEGIN statements T_END\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("comp_statement");
-						$$ = newnode;
-						node *node_begin = (node *) malloc(sizeof(node));
-						node_begin->value = strdup("begin");
-						$$->node1 = node_begin;
-						$$->node2 = $2;
-						node *node_end = (node *) malloc(sizeof(node));
-						node_end->value = strdup("end");
-						$$->node3 = node_end;
+						$$ = make_node("comp_statement", NODETYPE_COMP_STATEMENT, NULL, node_begin, $2, node_end, NULL, NULL, NULL);
 					}
 				;
 
 statements	:	statements SEMI statement { 
 					// printf("statements → statements SEMI statement\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statements");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_semi = (node *) malloc(sizeof(node));
-					node_semi->value = strdup(";");
-					$$->node2 = node_semi;
-					$$->node3 = $3;
+					$$ = make_node("statements", NODETYPE_STATEMENTS, NULL, $1, node_semi, $3, NULL, NULL, NULL);
 				}
 			| 	statement { 
 					// printf("statements → statement\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statements");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("statements", NODETYPE_STATEMENTS, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			;
 
 statement	:	assignment { 
 					// printf("statement → assignment\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statement");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("statement", NODETYPE_STATEMENT, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	if_statement { 
 					// printf("statement → if_statement\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statement");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("statement", NODETYPE_STATEMENT, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	while_statement { 
 					// printf("statement → while_statement\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statement");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("statement", NODETYPE_STATEMENT, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	for_statement { 
 					// printf("statement → for_statement\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statement");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("statement", NODETYPE_STATEMENT, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	with_statement { 
 					// printf("statement → with_statement\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statement");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("statement", NODETYPE_STATEMENT, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	subprogram_call { 
 					// printf("statement → subprogram_call\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statement");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("statement", NODETYPE_STATEMENT, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	io_statement { 
 					// printf("statement → io_statement\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statement");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("statement", NODETYPE_STATEMENT, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	comp_statement { 
 					// printf("statement → comp_statement\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("statement");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("statement", NODETYPE_STATEMENT, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	{ 
 					// printf("statement → ε\n"); 
@@ -1277,293 +624,128 @@ statement	:	assignment {
 
 assignment	:	variable ASSIGN expression { 
 					// printf("assignment → variable ASSIGN expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("assignment");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_assign = (node *) malloc(sizeof(node));
-					node_assign->value = strdup(":=");
-					$$->node2 = node_assign;
-					$$->node3 = $3;
+					$$ = make_node("assignment", NODETYPE_ASSIGNMENT, NULL, $1, node_assign, $3, NULL, NULL, NULL);
 				}
 			| 	variable ASSIGN STRING { 
 					// printf("assignment → variable ASSIGN STRING\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("assignment");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_assign = (node *) malloc(sizeof(node));
-					node_assign->value = strdup(":=");
-					$$->node2 = node_assign;
-					node *node_string = (node *) malloc(sizeof(node));
-					node_string->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node3 = node_string;
-					remove_last_yytext_element();
-				}
+										symbol* symbol_string = new_symbol(pop_yytext_stack());
+					node* node_string = make_node("string", NODETYPE_STRING, symbol_string, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("assignment", NODETYPE_ASSIGNMENT, NULL, $1, node_assign, node_string, NULL, NULL, NULL);
+									}
 			;
 
 if_statement	:	T_IF expression T_THEN statement {
 						// printf("if_statement → T_IF expression T_THEN statement if_tail\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("if_statement");
-						$$ = newnode;
-						node *node_if = (node *) malloc(sizeof(node));
-						node_if->value = strdup("if");
-						$$->node1 = node_if;
-						$$->node2 = $2;
-						node *node_then = (node *) malloc(sizeof(node));
-						node_then->value = strdup("then");
-						$$->node3 = node_then;
-						$$->node4 = $4;
+						$$ = make_node("if_statement", NODETYPE_IF_STATEMENT, NULL, node_if, $2, node_then, $4, NULL, NULL);
 					}
 					| T_IF expression T_THEN statement T_ELSE statement {
 						// printf("if_statement → T_IF expression T_THEN statement if_tail\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("if_statement");
-						$$ = newnode;
-						node *node_if = (node *) malloc(sizeof(node));
-						node_if->value = strdup("if");
-						$$->node1 = node_if;
-						$$->node2 = $2;
-						node *node_then = (node *) malloc(sizeof(node));
-						node_then->value = strdup("then");
-						$$->node3 = node_then;
-						$$->node4 = $4;
-						node *node_else = (node *) malloc(sizeof(node));
-						node_else->value = strdup("else");
-						$$->node5 = node_else;
-						$$->node6 = $6;
+						$$ = make_node("if_statement", NODETYPE_IF_STATEMENT, NULL, node_if, $2, node_then, $4, node_else, $6);
 					}
 				;
 
 while_statement	:	T_WHILE expression T_DO statement { 
 						// printf("while_statement → T_WHILE expression T_DO statement\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("while_statement");
-						$$ = newnode;
-						node *node_while = (node *) malloc(sizeof(node));
-						node_while->value = strdup("while");
-						$$->node1 = node_while;
-						$$->node2 = $2;
-						node *node_do = (node *) malloc(sizeof(node));
-						node_do->value = strdup("do");
-						$$->node3 = node_do;
-						$$->node4 = $4;
+						$$ = make_node("while_statement", NODETYPE_WHILE_STATEMENT, NULL, node_while, $2, node_do, $4, NULL, NULL);
 					}
 				;
 
 for_statement	:	T_FOR ID ASSIGN iter_space T_DO statement {
 						// printf("for_statement → T_FOR ID ASSIGN iter_space T_DO statement\n");
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("for_statement");
-						$$ = newnode;
-						node *node_for = (node *) malloc(sizeof(node));
-						node_for->value = strdup("for");
-						$$->node1 = node_for;
-						node *node_id = (node *) malloc(sizeof(node));
-						node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-						$$->node2 = node_id;
-						node *node_assign = (node *) malloc(sizeof(node));
-						node_assign->value = strdup(":=");
-						$$->node3 = node_assign;
-						$$->node4 = $4;
-						node *node_do = (node *) malloc(sizeof(node));
-						node_do->value = strdup("do");
-						$$->node5 = node_do;
-						$$->node6 = $6;
-						remove_last_yytext_element();
-					}
+												symbol* symbol_id = new_symbol(pop_yytext_stack());
+						node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+						$$ = make_node("for_statement", NODETYPE_FOR_STATEMENT, NULL, node_for, node_id, node_assign, $4, node_do, $6);
+											}
 				;
 
 iter_space	:	expression T_TO expression { 
 					// printf("iter_space → expression T_TO expression\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("iter_space");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_to = (node *) malloc(sizeof(node));
-					node_to->value = strdup("to");
-					$$->node2 = node_to;
-					$$->node3 = $3;
+					$$ = make_node("iter_space", NODETYPE_ITER_SPACE, NULL, $1, node_to, $3, NULL, NULL, NULL);
 				}
 			| 	expression T_DOWNTO expression { 
 					// printf("iter_space → expression T_DOWNTO expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("iter_space");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_to = (node *) malloc(sizeof(node));
-					node_to->value = strdup("downto");
-					$$->node2 = node_to;
-					$$->node3 = $3;
+					$$ = make_node("iter_space", NODETYPE_ITER_SPACE, NULL, $1, node_downto, $3, NULL, NULL, NULL);
 				}
 			;
 
 
 with_statement	:	T_WITH variable T_DO statement { 
 						// printf("with_statement → T_WITH variable T_DO statement\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("with_statement");
-						$$ = newnode;
-						node *node_with = (node *) malloc(sizeof(node));
-						node_with->value = strdup("with");
-						$$->node1 = node_with;
-						$$->node2 = $2;
-						node *node_to = (node *) malloc(sizeof(node));
-						node_to->value = strdup("do");
-						$$->node3 = node_to;
-						$$->node4 = $4;
+						$$ = make_node("with_statement", NODETYPE_WITH_STATEMENT, NULL, node_with, $2, node_do, $4, NULL, NULL);
 					}
 				;
 
 subprogram_call	:	ID {
 						//  printf("subprogram_call → ID\n");
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("subprogram_call");
-						$$ = newnode;
-						node *node_id = (node *) malloc(sizeof(node));
-						node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-						$$->node1 = node_id;
-						remove_last_yytext_element();
-					}
+						symbol* symbol_id = new_symbol(pop_yytext_stack());
+						node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+						$$ = make_node("subprogram_call", NODETYPE_SUBPROGRAM_CALL, NULL, node_id, NULL, NULL, NULL, NULL, NULL);
+											}
 				| 	ID LPAREN expressions RPAREN { 
-						// printf("subprogram_call → ID LPAREN expressions RPAREN\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("subprogram_call");
-						$$ = newnode;
-						node *node_id = (node *) malloc(sizeof(node));
-						node_id->value = strdup(yytexts->yytext[yytexts->slots-1]);
-						$$->node1 = node_id;
-						node *node_lparen = (node *) malloc(sizeof(node));
-						node_lparen->value = strdup("(");
-						$$->node2 = node_lparen;
-						$$->node3 = $3;
-						node *node_rparen = (node *) malloc(sizeof(node));
-						node_rparen->value = strdup(")");
-						$$->node4 = node_rparen;
-						remove_last_yytext_element();
+						// printf("subprogram_call → ID LPAREN expressions RPAREN\n");
+						symbol* symbol_id = new_symbol(pop_yytext_stack());
+						node* node_id = make_node("ID", NODETYPE_ID, symbol_id, NULL, NULL, NULL, NULL, NULL, NULL);
+						$$ = make_node("subprogram_call", NODETYPE_SUBPROGRAM_CALL, NULL, node_id, node_lparen, $3, node_rparen, NULL, NULL);
 					}
 				;
 
 io_statement	:	T_READ LPAREN read_list RPAREN { 
 						// printf("io_statement → T_READ LPAREN read_list RPAREN\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("io_statement");
-						$$ = newnode;
-						node *node_read = (node *) malloc(sizeof(node));
-						node_read->value = strdup("read");
-						$$->node1 = node_read;
-						node *node_lparen = (node *) malloc(sizeof(node));
-						node_lparen->value = strdup("(");
-						$$->node2 = node_lparen;
-						$$->node3 = $3;
-						node *node_rparen = (node *) malloc(sizeof(node));
-						node_rparen->value = strdup(")");
-						$$->node4 = node_rparen;
+						$$ = make_node("io_statement", NODETYPE_IO_STATEMENT, NULL, node_read, node_lparen, $3, node_rparen, NULL, NULL);
 					}
 				| 	T_WRITE LPAREN write_list RPAREN { 
 						// printf("io_statement → T_WRITE LPAREN write_list RPAREN\n"); 
-						node *newnode = (node *) malloc(sizeof(node));
-						newnode->value = strdup("io_statement");
-						$$ = newnode;
-						node *node_read = (node *) malloc(sizeof(node));
-						node_read->value = strdup("write");
-						$$->node1 = node_read;
-						node *node_lparen = (node *) malloc(sizeof(node));
-						node_lparen->value = strdup("(");
-						$$->node2 = node_lparen;
-						$$->node3 = $3;
-						node *node_rparen = (node *) malloc(sizeof(node));
-						node_rparen->value = strdup(")");
-						$$->node4 = node_rparen;
+						$$ = make_node("io_statement", NODETYPE_IO_STATEMENT, NULL, node_write, node_lparen, $3, node_rparen, NULL, NULL);
 					}
 				;
 
 read_list	:	read_list COMMA read_item { 
 					// printf("read_list → read_list COMMA read_item\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("read_list");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_comma = (node *) malloc(sizeof(node));
-					node_comma->value = strdup(",");
-					$$->node2 = node_comma;
-					$$->node3 = $3;
+					$$ = make_node("read_list", NODETYPE_READ_LIST, NULL, $1, node_comma, $3, NULL, NULL, NULL);
 				}
 			| 	read_item { 
 					// printf("read_list → read_item\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("read_list");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("read_list", NODETYPE_READ_LIST, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			;
 
 read_item	:	variable { 
 					// printf("read_item → variable\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("read_item");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("read_item", NODETYPE_READ_ITEM, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			;
 
 write_list	:	write_list COMMA write_item { 
 					// printf("write_list → write_list COMMA write_item\n");
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("write_list");
-					$$ = newnode;
-					$$->node1 = $1;
-					node *node_comma = (node *) malloc(sizeof(node));
-					node_comma->value = strdup(",");
-					$$->node2 = node_comma;
-					$$->node3 = $3;
+					$$ = make_node("write_list", NODETYPE_WRITE_LIST, NULL, $1, node_comma, $3, NULL, NULL, NULL);
 				}
 			|	write_item { 
 					// printf("write_list → write_item\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("write_list");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("write_list", NODETYPE_WRITE_LIST, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			;
 
 write_item	:	expression { 
 					// printf("write_item → expression\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("write_item");
-					$$ = newnode;
-					$$->node1 = $1;
+					$$ = make_node("write_item", NODETYPE_WRITE_ITEM, NULL, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	STRING { 
 					// printf("write_item → STRING\n"); 
-					node *newnode = (node *) malloc(sizeof(node));
-					newnode->value = strdup("write_item");
-					$$ = newnode;
-					node *node_string = (node *) malloc(sizeof(node));
-					node_string->value = strdup(yytexts->yytext[yytexts->slots-1]);
-					$$->node1 = node_string;
-					remove_last_yytext_element();
+					symbol* symbol_string = new_symbol(pop_yytext_stack());
+					node* node_string = make_node("string", NODETYPE_STRING, symbol_string, NULL, NULL, NULL, NULL, NULL, NULL);
+					$$ = make_node("write_item", NODETYPE_WRITE_ITEM, NULL, node_string, NULL, NULL, NULL, NULL, NULL);
 				}
 			;
 %%
 
 int main () {
-	yytexts = (yytexts_ *) malloc(sizeof(yytexts_));
-	hashtable* hash_table = create_hashtable(10);
-	hashtable_insert(hash_table, "ahf", 1337, 1, 0);
-	hashtable_insert(hash_table, "akk", 1, 1, 0);
-	hashtable_insert(hash_table, ",kankka", 1337, 1, 0);
-	hashtable_insert(hash_table, "kas", 1, 1, 0);
-	hashtable_insert(hash_table, "kaka", 1337, 1, 0);
-	hashtable_insert(hash_table, "akjja", 1, 1, 0);
-	hashtable_insert(hash_table, "jahfnsdj", 1337, 1, 0);
-	hashtable_insert(hash_table, "atat", 1, 1, 0);
-	hashtable_get(hash_table, 0);
+	create_node_types();
+	Symbol_free = NULL;
+
+	yytext_stack = (yytext_stack_struct *) malloc(sizeof(yytext_stack_struct));
 	int ret = yyparse();
-	printf("\n-----------\nSyntax tree\n-----------\n\n");
-	update_tree_depths(root, 0);
-	preorder_tree_traversal(root);
+	printf("\n--------------------\nAbstract Syntax Tree\n--------------------\n\n");
+	preorder_tree_traversal(ast_tree_root, 0);
 	printf("\n");
   	return ret;
 }

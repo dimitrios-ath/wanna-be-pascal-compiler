@@ -9,10 +9,10 @@ extern FILE *yyout;
 // http://www.cse.yorku.ca/~oz/hash.html
 unsigned int hash_function(const char* str, int size) {
         unsigned int hash = 5381;
-        int c;
+        // int c;
 
-        while (c = *str++)
-            hash = ((hash << 5) + hash) + c; 
+        // while (c = *str++)
+        //     hash = ((hash << 5) + hash) + c; 
 
         return hash%size;
     }

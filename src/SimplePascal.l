@@ -1,10 +1,10 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-#include "src/tree.h"
+#include "src/defs.h"
 #include "y.tab.h"
 
-extern yytexts_* yytexts;
+extern yytext_stack_struct* yytext_stack;
 void yyerror(const char *);
 int id_or_keyword(char *s);
 %}
@@ -50,38 +50,38 @@ NEWLINE [\n]
 "]"                 { return RBRACK; }
 ":="                { return ASSIGN; }
 ".."                { return DOTDOT; }
-{BCONST}            { 
-                        yytexts->yytext[yytexts->slots++]=strdup(yytext);
+{BCONST}            {
+                        push_yytext_stack(yytext);
                         yylval.string = strdup(yytext);
                         return BCONST; 
                     }
 {CCONST}	        { 
-                        yytexts->yytext[yytexts->slots++]=strdup(yytext);
+                        push_yytext_stack(yytext);
                         yylval.string = strdup(yytext);
                         return CCONST;  
                     }
 {ICONST}	        { 
-                        yytexts->yytext[yytexts->slots++]=strdup(yytext);
+                        push_yytext_stack(yytext);
                         yylval.string = strdup(yytext);
                         return ICONST; 
                     }
-{RCONST_REAL}	    { 
-                        yytexts->yytext[yytexts->slots++]=strdup(yytext);
+{RCONST_REAL}	    {   
+                        push_yytext_stack(yytext);
                         yylval.string = strdup(yytext);
                         return RCONST_REAL; 
                     }
 {RCONST_INT}	    { 
-                        yytexts->yytext[yytexts->slots++]=strdup(yytext);
+                        push_yytext_stack(yytext);
                         yylval.string = strdup(yytext);
                         return RCONST_INT; 
                     }
 {RCONST_HEX}	    { 
-                        yytexts->yytext[yytexts->slots++]=strdup(yytext);
+                        push_yytext_stack(yytext);
                         yylval.string = strdup(yytext);
                         return RCONST_HEX; 
                     }
 {RCONST_BIN}	    {
-                        yytexts->yytext[yytexts->slots++]=strdup(yytext);
+                        push_yytext_stack(yytext);
                         yylval.string = strdup(yytext);
                         return RCONST_BIN; 
                     }
@@ -100,13 +100,13 @@ NEWLINE [\n]
 {KEYWORD_OR_ID}	    {
                         int val = id_or_keyword(yytext);
                         if(val==ID) {
-                            yytexts->yytext[yytexts->slots++]=strdup(yytext); 
+                            push_yytext_stack(yytext);
                             yylval.string = strdup(yytext); 
                         }
                         return(val);
                     }
 {STRING}	        {
-                        yytexts->yytext[yytexts->slots++]=strdup(yytext); 
+                        push_yytext_stack(yytext);
                         yylval.string = strdup(yytext); 
                         return STRING; 
                     }
