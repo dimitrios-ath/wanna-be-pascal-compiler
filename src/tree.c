@@ -13,67 +13,310 @@ void push_yytext_stack(char* yytext) {
 	yytext_stack->stack[yytext_stack->size++] = strdup(yytext);
 }
 
-// void debug_yytext() {
-// 	printf("Number of used slots = %d\n\n", yytexts->slots);
-// 	for (int i=0; i<yytexts->slots; i++)
-// 		printf("%s\n", yytexts->yytext[i]);
-// 	printf("\n");
-// }
-
-void print_tabs(int depth) {
-	for (int i=0; i<depth; i++)
-			printf("‣   ");
-}
-
 void preorder_tree_traversal(node* node, int depth) {
-	if (!node)
-		return;
-	else {
-		print_tabs(depth);
-		if(node->symbol) {
-			printf("%s = %s\n", node->name, node->symbol->name);
-		}
-		else {
-			printf("%s\n", node->name);
+	if (node) {
+		for (int i=0; i<depth; i++)
+			printf("|   ");
+		switch (node->type) {
+			case NODE_TYPE_PROGRAM:
+				printf("header declarations subprograms comp_statement.\n");
+				break;
+			case NODE_TYPE_HEADER:
+				printf("program %s;\n", node->symbol->name);
+				break;
+			case NODE_TYPE_DECLARATIONS:
+				printf("constdefs typedefs vardefs\n");
+				break;
+			case NODE_TYPE_CONSTDEFS:
+				printf("const constant_defs;\n");
+				break;
+			case NODE_TYPE_CONSTANT_DEFS_0:
+				printf("constant_defs; %s = expression\n", node->symbol->name);
+				break;
+			case NODE_TYPE_CONSTANT_DEFS_1:
+				printf("%s = expression\n", node->symbol->name);
+				break;
+			case NODE_TYPE_EXPRESSION_0:
+				printf("expression <> expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_1:
+				printf("expression >= expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_2:
+				printf("expression <= expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_3:
+				printf("expression < expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_4:
+				printf("expression > expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_5:
+				printf("expression = expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_6:
+				printf("expression in expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_7:
+				printf("expression or expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_8:
+				printf("expression + expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_9:
+				printf("expression - expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_10:
+				printf("expression * expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_11:
+				printf("expression / expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_12:
+				printf("expression div expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_13:
+				printf("expression mod expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_14:
+				printf("expression and expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_15:
+				printf("+ expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_16:
+				printf("- expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_17:
+				printf("not expression\n");
+				break;
+			case NODE_TYPE_EXPRESSION_18:
+				printf("%s(expression)\n", node->symbol->name);
+				break;
+			case NODE_TYPE_EXPRESSION_19:
+				printf("(expression)\n");
+				break;
+			case NODE_TYPE_VARIABLE_0:
+				printf("%s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_VARIABLE_1:
+				printf("variable.%s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_VARIABLE_2:
+				printf("variable[expression]\n");
+				break;
+			case NODE_TYPE_EXPRESSIONS:
+				printf("expressions, expressions\n");
+				break;
+			case NODE_TYPE_CONSTANT_0:
+			case NODE_TYPE_CONSTANT_1:
+			case NODE_TYPE_CONSTANT_2:
+			case NODE_TYPE_CONSTANT_3:
+			case NODE_TYPE_CONSTANT_4:
+			case NODE_TYPE_CONSTANT_5:
+			case NODE_TYPE_CONSTANT_6:
+				printf("%s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_SETEXPRESSION_0:
+				printf("[elexpressions]\n");
+				break;
+			case NODE_TYPE_SETEXPRESSION_1:
+				printf("[]\n");
+				break;
+			case NODE_TYPE_ELEXPRESSIONS:
+				printf("elexpressions, elexpressions\n");
+				break;
+			case NODE_TYPE_ELEXPRESSION:
+				printf("expression..expression\n");
+				break;
+			case NODE_TYPE_TYPEDEFS:
+				printf("type type_defs;\n");
+				break;
+			case NODE_TYPE_TYPE_DEFS_0:
+				printf("type_defs; %s = type_def\n", node->symbol->name);
+				break;
+			case NODE_TYPE_TYPE_DEFS_1:
+				printf("%s = type_def\n", node->symbol->name);
+				break;
+			case NODE_TYPE_TYPE_DEF_0:
+				printf("array[dims] of typename\n");
+				break;
+			case NODE_TYPE_TYPE_DEF_1:
+				printf("set of typename\n");
+				break;
+			case NODE_TYPE_TYPE_DEF_2:
+				printf("record fields end\n");
+				break;
+			case NODE_TYPE_TYPE_DEF_3:
+				printf("(identifiers)\n");
+				break;
+			case NODE_TYPE_TYPE_DEF_4:
+				printf("limit..limit\n");
+				break;
+			case NODE_TYPE_DIMS:
+				printf("dims, limits\n");
+				break;
+			case NODE_TYPE_LIMITS_0:
+				printf("limit..limit\n");
+				break;
+			case NODE_TYPE_LIMITS_1:
+				printf("%s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_LIMIT_0:
+			case NODE_TYPE_LIMIT_2:
+				printf("+%s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_LIMIT_1:
+			case NODE_TYPE_LIMIT_3:
+				printf("-%s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_LIMIT_4:
+			case NODE_TYPE_LIMIT_5:
+			case NODE_TYPE_LIMIT_6:
+			case NODE_TYPE_LIMIT_7:
+			case NODE_TYPE_TYPENAME:
+			case NODE_TYPE_IDENTIFIERS_1:
+				printf("%s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_FIELDS_0:
+				printf("fields; field\n");
+				break;
+			case NODE_TYPE_FIELDS_1:
+				printf("field\n");
+				break;
+			case NODE_TYPE_FIELD:
+				printf("identifiers: typename\n");
+				break;
+			case NODE_TYPE_IDENTIFIERS_0:
+				printf("identifiers, %s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_VARDEFS:
+				printf("var variable_defs;\n");
+				break;
+			case NODE_TYPE_VARIABLE_DEFS_0:
+				printf("variable_defs; identifiers: typename\n");
+				break;
+			case NODE_TYPE_VARIABLE_DEFS_1:
+				printf("identifiers: typename\n");
+				break;
+			case NODE_TYPE_SUBPROGRAMS:
+				printf("subprograms subprogram;\n");
+				break;
+
+			case NODE_TYPE_SUBPROGRAM_0:
+				printf("sub_header; forward\n");
+				break;
+			case NODE_TYPE_SUBPROGRAM_1:
+				printf("sub_header; declarations subprograms comp_statement\n");
+				break;
+			case NODE_TYPE_SUB_HEADER_0:
+				printf("function %s formal_parameters: standard_type\n", node->symbol->name);
+				break;
+			case NODE_TYPE_SUB_HEADER_1:
+				printf("procedure %s formal_parameters\n", node->symbol->name);
+				break;
+			case NODE_TYPE_SUB_HEADER_2:
+				printf("function %s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_FORMAL_PARAMETERS:
+				printf("(parameter_list)\n");
+				break;
+			case NODE_TYPE_PARAMETER_LIST_0:
+				printf("parameter_list; pass identifiers: typename\n");
+				break;
+			case NODE_TYPE_PARAMETER_LIST_1:
+				printf("pass identifiers: typename\n");
+				break;
+			case NODE_TYPE_COMP_STATEMENT:
+				printf("begin statements end\n");
+				break;
+			case NODE_TYPE_STATEMENTS:
+				printf("statements; statement\n");
+				break;
+			case NODE_TYPE_ASSIGNMENT_0:
+				printf("variable := expression\n");
+				break;
+			case NODE_TYPE_ASSIGNMENT_1:
+				printf("variable := %s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_IF_STATEMENT_0:
+				printf("if expression then statement\n");
+				break;
+			case NODE_TYPE_IF_STATEMENT_1:
+				printf("if expression then statement else statement\n");
+				break;
+			case NODE_TYPE_WHILE_STATEMENT:
+				printf("while expression do statement\n");
+				break;
+			case NODE_TYPE_FOR_STATEMENT:
+				printf("for %s := iter_space do statement\n", node->symbol->name);
+				break;
+			case NODE_TYPE_ITER_SPACE_0:
+				printf("expression to expression\n");
+				break;
+			case NODE_TYPE_ITER_SPACE_1:
+				printf("expression downto expression\n");
+				break;
+			case NODE_TYPE_WITH_STATEMENT:
+				printf("with variable do statement\n");
+				break;
+			case NODE_TYPE_SUBPROGRAM_CALL_0:
+				printf("%s\n", node->symbol->name);
+				break;
+			case NODE_TYPE_SUBPROGRAM_CALL_1:
+				printf("%s(expressions)\n", node->symbol->name);
+				break;
+
+			case NODE_TYPE_IO_STATEMENT_0:
+				printf("read (read_list)\n");
+				break;
+			case NODE_TYPE_IO_STATEMENT_1:
+				printf("write (write_list)\n");
+				break;
+			case NODE_TYPE_READ_LIST:
+				printf("read_list, read_item\n");
+				break;
+			case NODE_TYPE_WRITE_LIST:
+				printf("write_list, write_item\n");
+				break;
+			case NODE_TYPE_WRITE_ITEM:
+				printf("%s\n", node->symbol->name);
+				break;
+			default:
+				if (node->symbol) {
+					printf("%s\n", node->symbol->name);
+				}
+				else {
+					printf("%s\n", node->name);
+				}
+				break;
 		}
 	}
 
-	if (node->nodes[0])
-		preorder_tree_traversal(node->nodes[0], depth+1);
-	if (node->nodes[1])
-		preorder_tree_traversal(node->nodes[1], depth+1);
-	if (node->nodes[2])
-		preorder_tree_traversal(node->nodes[2], depth+1);
-	if (node->nodes[3])
-		preorder_tree_traversal(node->nodes[3], depth+1);
-	if (node->nodes[4])
-		preorder_tree_traversal(node->nodes[4], depth+1);
-	if (node->nodes[5])
-		preorder_tree_traversal(node->nodes[5], depth+1);
+	for (int i=0; i<6; i++) {
+		if (node->nodes[i])
+			preorder_tree_traversal(node->nodes[i], depth+1);	
+	}
 }
 
-node* make_node(char* node_name, int node_type, symbol *symbol, node* node_0, node* node_1, node* node_2, node* node_3, node* node_4, node* node_5)
-{  
-	node* p;
-
-	p = (node *) malloc(sizeof(node));
-	if(!p)
-	{
+node* make_node(char* node_name, int node_type, symbol *symbol, node* n0,
+				node* n1, node* n2, node* n3, node* n4, node* n5) {
+	node* new_node = (node *) malloc(sizeof(node));
+	if(!new_node) {
 		printf("Out of memory\n");
 		exit(1);
 	}
-	else
-	{
-		p->type = node_type;
-		p->name = strdup(node_name);
-		p->symbol = symbol;
-		p->nodes[0] = node_0;
-		p->nodes[1] = node_1;
-		p->nodes[2] = node_2;
-		p->nodes[3] = node_3;
-		p->nodes[4] = node_4;
-		p->nodes[5] = node_5;
-		return(p);
+	else {
+		new_node->type = node_type;
+		new_node->name = strdup(node_name);
+		new_node->symbol = symbol;
+		new_node->nodes[0] = n0;
+		new_node->nodes[1] = n1;
+		new_node->nodes[2] = n2;
+		new_node->nodes[3] = n3;
+		new_node->nodes[4] = n4;
+		new_node->nodes[5] = n5;
+		return(new_node);
    }
 }
 
@@ -96,65 +339,4 @@ symbol *new_symbol(char *name)
    symbp->NextSymbol=NULL;
    symbp->PrevSymbol=NULL;
    return(symbp);
-}
-
-void create_node_types() {
-	node_program = make_node("program", NODETYPE_KEYWORD_PROGRAM, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_const = make_node("const", NODETYPE_KEYWORD_CONST, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_type = make_node("type", NODETYPE_KEYWORD_TYPE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_array = make_node("array", NODETYPE_KEYWORD_ARRAY, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_set = make_node("set", NODETYPE_KEYWORD_SET, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_of = make_node("of", NODETYPE_KEYWORD_OF, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_record = make_node("record", NODETYPE_KEYWORD_RECORD, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_var = make_node("var", NODETYPE_KEYWORD_VAR, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_forward = make_node("forward", NODETYPE_KEYWORD_FORWARD, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_function = make_node("function", NODETYPE_KEYWORD_FUNCTION, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_procedure = make_node("procedure", NODETYPE_KEYWORD_PROCEDURE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_integer = make_node("integer", NODETYPE_KEYWORD_INTEGER, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_real = make_node("real", NODETYPE_KEYWORD_REAL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_boolean = make_node("boolean", NODETYPE_KEYWORD_BOOLEAN, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_char = make_node("char", NODETYPE_KEYWORD_CHAR, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_begin = make_node("begin", NODETYPE_KEYWORD_BEGIN, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_end = make_node("end", NODETYPE_KEYWORD_END, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_if = make_node("if", NODETYPE_KEYWORD_IF, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_then = make_node("then", NODETYPE_KEYWORD_THEN, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_else = make_node("else", NODETYPE_KEYWORD_ELSE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_while = make_node("while", NODETYPE_KEYWORD_WHILE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_do = make_node("do", NODETYPE_KEYWORD_DO, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_for = make_node("for", NODETYPE_KEYWORD_FOR, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_downto = make_node("downto", NODETYPE_KEYWORD_DOWNTO, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_to = make_node("to", NODETYPE_KEYWORD_TO, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_with = make_node("with", NODETYPE_KEYWORD_WITH, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_read = make_node("read", NODETYPE_KEYWORD_READ, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_write = make_node("write", NODETYPE_KEYWORD_WRITE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_or = make_node("or", NODETYPE_KEYWORD_OR, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_not = make_node("not", NODETYPE_KEYWORD_NOT, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_in = make_node("in", NODETYPE_KEYWORD_IN, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	
-	node_lparen = make_node("(", NODETYPE_LPAREN, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_rparen = make_node(")", NODETYPE_RPAREN, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_semi = make_node(";", NODETYPE_SEMI, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_dot = make_node(".", NODETYPE_DOT, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_comma = make_node(",", NODETYPE_COMMA, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_equ = make_node("=", NODETYPE_EQU, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_colon = make_node(":", NODETYPE_COLON, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_lbrack = make_node("[", NODETYPE_LBRACK, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_rbrack = make_node("]", NODETYPE_RBRACK, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_assign = make_node(":=", NODETYPE_ASSIGN, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_dotdot = make_node("..", NODETYPE_DOTDOT, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-
-	node_addop_add = make_node("+", NODETYPE_EXPRESSION_ADDOP_ADD, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_addop_sub = make_node("-", NODETYPE_EXPRESSION_ADDOP_SUB, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_relop_ne = make_node("<>", NODETYPE_EXPRESSION_RELOP_NE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_relop_ge = make_node(">=", NODETYPE_EXPRESSION_RELOP_GE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_relop_le = make_node("<=", NODETYPE_EXPRESSION_RELOP_LE, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_relop_gt = make_node(">", NODETYPE_EXPRESSION_RELOP_GT, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_relop_lt = make_node("<", NODETYPE_EXPRESSION_RELOP_LT, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_muldivandop_mul = make_node("*", NODETYPE_EXPRESSION_MULDIVANDOP_MUL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_muldivandop_div = make_node("/", NODETYPE_EXPRESSION_MULDIVANDOP_DIV, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_muldivandop_div_e = make_node("div", NODETYPE_EXPRESSION_MULDIVANDOP_DIV_E, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_muldivandop_mod = make_node("mod", NODETYPE_EXPRESSION_MULDIVANDOP_MOD, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_muldivandop_and = make_node("and", NODETYPE_EXPRESSION_MULDIVANDOP_AND, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_addop_add = make_node("+", NODETYPE_EXPRESSION_ADDOP_ADD_UNARY, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-	node_addop_sub = make_node("-", NODETYPE_EXPRESSION_ADDOP_SUB_UNARY, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 }
