@@ -8,8 +8,9 @@
 void yyerror(const char *s);
 int yylex();
 extern int yylineno;
-
+extern stack_struct* registers_stack;
 node* ast_tree_root;
+int error_flag = 0;
 
 %}
 
@@ -42,10 +43,9 @@ node* ast_tree_root;
 	char character;
 	int boolean;
 	node* node;
-	parse_and_syntax_tree* parse_and_syntax_tree;
 }
 
-%token <string> ID ICONST BCONST CCONST STRING RCONST_REAL RCONST_INT RCONST_HEX RCONST_BIN
+%token <string> ID ICONST BCONST CCONST STRING RCONST RCONST_REAL RCONST_INT RCONST_HEX RCONST_BIN
 
 %type <node> program header declarations constdefs constant_defs expression constant typedefs type_defs 
 			 type_def dims limit limits typename standard_type fields field identifiers vardefs variable_defs
@@ -63,7 +63,7 @@ program:		header declarations subprograms comp_statement DOT {
 
 header: 		T_PROGRAM ID SEMI {
 					// printf("header → T_PROGRAM ID SEMI\n");
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
 					$$ = make_node("header", NODE_TYPE_HEADER, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -73,6 +73,7 @@ declarations:	constdefs typedefs vardefs {
 				};
 
 constdefs:		T_CONST constant_defs SEMI { 
+					
 					// printf("constdefs → T_CONST constant_defs SEMI\n"); 
 					$$ = make_node("constdefs", NODE_TYPE_CONSTDEFS, NULL, $2, NULL, NULL, NULL, NULL, NULL);
 				}
@@ -83,12 +84,20 @@ constdefs:		T_CONST constant_defs SEMI {
 
 constant_defs:	constant_defs SEMI ID EQU expression { 
 					// printf("constant_defs → constant_defs SEMI ID EQU expression\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					add_symbol(smbl);
+					if ($5->symbol) {
+						parse_value(smbl, $5->symbol, $5->type);
+					}
 					$$ = make_node("constant_defs_0", NODE_TYPE_CONSTANT_DEFS_0, smbl, $1, $5, NULL, NULL, NULL, NULL);
 				}
 			| 	ID EQU expression {
 					// printf("constant_defs → ID EQU expression\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					add_symbol(smbl);
+					if ($3->symbol) {
+						parse_value(smbl, $3->symbol, $3->type);
+					}
 					$$ = make_node("constant_defs_1", NODE_TYPE_CONSTANT_DEFS_1, smbl, $3, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -126,27 +135,57 @@ expression:		expression RELOP_NE expression {
 				}
 			|	expression ADDOP_ADD expression	{
 					// printf("expression → expression ADDOP expression\n");
-					$$ = make_node("expression_8", NODE_TYPE_EXPRESSION_8, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_8)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression ADDOP_ADD expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_8", NODE_TYPE_EXPRESSION_8, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression ADDOP_SUB expression	{
 					// printf("expression → expression ADDOP expression\n");
-					$$ = make_node("expression_9", NODE_TYPE_EXPRESSION_9, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_9)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression ADDOP_SUB expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_9", NODE_TYPE_EXPRESSION_9, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression MULDIVANDOP_MUL expression {
 					// printf("expression → expression MULDIVANDOP expression\n");
-					$$ = make_node("expression_10", NODE_TYPE_EXPRESSION_10, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_10)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression MULDIVANDOP_MUL expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_10", NODE_TYPE_EXPRESSION_10, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression MULDIVANDOP_DIV expression {
 					// printf("expression → expression MULDIVANDOP expression\n");
-					$$ = make_node("expression_11", NODE_TYPE_EXPRESSION_11, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_11)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression MULDIVANDOP_DIV expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_11", NODE_TYPE_EXPRESSION_11, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression MULDIVANDOP_DIV_E expression {
 					// printf("expression → expression MULDIVANDOP expression\n");
-					$$ = make_node("expression_12", NODE_TYPE_EXPRESSION_12, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_12)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression MULDIVANDOP_DIV_E expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_12", NODE_TYPE_EXPRESSION_12, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression MULDIVANDOP_MOD expression { 
 					// printf("expression → expression MULDIVANDOP expression\n");
-					$$ = make_node("expression_13", NODE_TYPE_EXPRESSION_13, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_13)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression MULDIVANDOP_MOD expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_13", NODE_TYPE_EXPRESSION_13, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression MULDIVANDOP_AND expression {
 					// printf("expression → expression MULDIVANDOP expression\n");
@@ -154,11 +193,23 @@ expression:		expression RELOP_NE expression {
 				}
 			|	ADDOP_ADD expression {
 					// printf("expression → ADDOP expression\n");
-					$$ = make_node("expression_15", NODE_TYPE_EXPRESSION_15, NULL, $2, NULL, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $2->symbol, NULL, NODE_TYPE_EXPRESSION_15)) {
+						printf("error at line %d: invalid operand type %d for \"ADDOP_ADD expression\"\n", yylineno, $2->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_15", NODE_TYPE_EXPRESSION_15, smbl, $2, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	ADDOP_SUB expression {
 					// printf("expression → ADDOP expression\n");
-					$$ = make_node("expression_16", NODE_TYPE_EXPRESSION_16, NULL, $2, NULL, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $2->symbol, NULL, NODE_TYPE_EXPRESSION_16)) {
+						if ($2->symbol) { // TODO CHECK _all(-y[x[0]],xx[y[x[x2]]]);
+							printf("error at line %d: invalid operand type %d for \"ADDOP_SUB expression\"\n", yylineno, $2->symbol->typos);
+							error_flag = 1;
+						}
+					}
+					$$ = make_node("expression_16", NODE_TYPE_EXPRESSION_16, smbl, $2, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	NOTOP expression {
 					// printf("expression → NOTOP expression\n"); 
@@ -170,8 +221,20 @@ expression:		expression RELOP_NE expression {
 				}
 			|	ID LPAREN expressions RPAREN {
 					// printf("expression → ID LPAREN expressions RPAREN\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					if (!find_symbol(smbl)) {
+						printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						error_flag = 1;
+					}
 					$$ = make_node("expression_18", NODE_TYPE_EXPRESSION_18, smbl, $3, NULL, NULL, NULL, NULL, NULL);
+
+					// if (find_symbol(smbl)) {
+					// 	$$ = make_node("expression_18", NODE_TYPE_EXPRESSION_18, smbl, $3, NULL, NULL, NULL, NULL, NULL);
+					// }
+					// else {
+					// 	printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+					// 	error_flag = 1;
+					// }
 				}
 			|	constant {
 					// printf("expression → constant\n"); 
@@ -179,6 +242,12 @@ expression:		expression RELOP_NE expression {
 				}
 			|	LPAREN expression RPAREN {
 					// printf("expression → LPAREN expression RPAREN\n");
+					// symbol* smbl = new_symbol("");
+					// if (!evaluate_expression(smbl, $2->symbol, NULL, NODE_TYPE_EXPRESSION_19)) {
+					// 	printf("error at line %d: invalid operand type %d for \"(expression)\"\n", yylineno, $2->symbol->typos);
+					// 	error_flag = 1;
+					// }
+					// $$ = make_node("expression_19", NODE_TYPE_EXPRESSION_19, smbl, $2, NULL, NULL, NULL, NULL, NULL);
 					$$ = make_node("expression_19", NODE_TYPE_EXPRESSION_19, NULL, $2, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	setexpression{
@@ -189,12 +258,27 @@ expression:		expression RELOP_NE expression {
 
 variable:		ID {
 					// printf("variable → ID\n");
-					symbol* smbl = new_symbol(pop_yytext_stack());
-					$$ = make_node("variable_0", NODE_TYPE_VARIABLE_0, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					if (!find_symbol(smbl)) {
+						printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						error_flag = 1;
+					}
+					$$ = make_node("variable_0", NODE_TYPE_VARIABLE_0, find_symbol(smbl), NULL, NULL, NULL, NULL, NULL, NULL);
+					// if (find_symbol(smbl)) {
+					// 	$$ = make_node("variable_0", NODE_TYPE_VARIABLE_0, find_symbol(smbl), NULL, NULL, NULL, NULL, NULL, NULL);
+					// }
+					// else {
+					// 	printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+					// 	error_flag = 1;
+					// }
 				}
 			|	variable DOT ID {
 					// printf("variable → variable DOT ID\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					if (!find_symbol(smbl)) {
+						printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						error_flag = 1;
+					}
 					$$ = make_node("variable_1", NODE_TYPE_VARIABLE_1, smbl, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	variable LBRACK expressions RBRACK {
@@ -213,37 +297,25 @@ expressions:	expressions COMMA expression {
 
 constant:		ICONST {
 					// printf("constant → ICONST\n");
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					parse_value(smbl, smbl, NODE_TYPE_CONSTANT_0);
 					$$ = make_node("constant_0", NODE_TYPE_CONSTANT_0, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				}
-			| 	RCONST_REAL {
-					// printf("constant → RCONST\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+			|	RCONST {
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					parse_value(smbl, smbl, NODE_TYPE_CONSTANT_1);
 					$$ = make_node("constant_1", NODE_TYPE_CONSTANT_1, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
-				}
-			| 	RCONST_INT {
-					// printf("constant → RCONST\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
-					$$ = make_node("constant_2", NODE_TYPE_CONSTANT_2, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
-				}
-			| 	RCONST_HEX {
-					// printf("constant → RCONST\n");
-					symbol* smbl = new_symbol(pop_yytext_stack());
-					$$ = make_node("constant_3", NODE_TYPE_CONSTANT_3, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
-				}
-			| 	RCONST_BIN {
-					// printf("constant → RCONST\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
-					$$ = make_node("constant_4", NODE_TYPE_CONSTANT_4, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	BCONST {
 					// printf("constant → BCONST\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					parse_value(smbl, smbl, NODE_TYPE_CONSTANT_5);
 					$$ = make_node("constant_5", NODE_TYPE_CONSTANT_5, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	CCONST {
 					// printf("constant → CCONST\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					parse_value(smbl, smbl, NODE_TYPE_CONSTANT_6);
 					$$ = make_node("constant_6", NODE_TYPE_CONSTANT_6, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -285,12 +357,14 @@ typedefs:		T_TYPE type_defs SEMI	{
 
 type_defs:		type_defs SEMI ID EQU type_def { 
 					// printf("type_defs → type_defs SEMI ID EQU type_def\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					add_symbol(smbl);
 					$$ = make_node("type_defs_0", NODE_TYPE_TYPE_DEFS_0, smbl, $1, $5, NULL, NULL, NULL, NULL);
 				}
 			| 	ID EQU type_def {
 					// printf("type_defs → ID EQU type_def\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					add_symbol(smbl);
 					$$ = make_node("type_defs_1", NODE_TYPE_TYPE_DEFS_1, smbl, $3, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -330,48 +404,71 @@ limits:			limit DOTDOT limit {
 				}
 			|	ID {
 					// printf("limits → ID\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					if (!find_symbol(smbl)) {
+						printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						error_flag = 1;
+					}
 					$$ = make_node("limits_1", NODE_TYPE_LIMITS_1, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				};
 
 limit:			ADDOP_ADD ICONST{
 					// printf("limit → ADDOP ICONST\n");
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
 					$$ = make_node("limit_0", NODE_TYPE_LIMIT_0, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	ADDOP_SUB ICONST {
 					// printf("limit → ADDOP ICONST\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
 					$$ = make_node("limit_1", NODE_TYPE_LIMIT_1, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	ADDOP_ADD ID {
 					// printf("limit → ADDOP ID\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					if (!find_symbol(smbl)) {
+						printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						error_flag = 1;
+					}
 					$$ = make_node("limit_2", NODE_TYPE_LIMIT_2, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
+					// if (find_symbol(smbl)) {
+					// 	$$ = make_node("limit_2", NODE_TYPE_LIMIT_2, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
+					// }
+					// else {
+					// 	printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+					// 	error_flag = 1;
+					// }
 				}
 			| 	ADDOP_SUB ID {
 					// printf("limit → ADDOP ID\n");
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					if (!find_symbol(smbl)) {
+						printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						error_flag = 1;
+					}
 					$$ = make_node("limit_3", NODE_TYPE_LIMIT_3, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	ICONST {
 					// printf("limit → ICONST\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
 					$$ = make_node("limit_4", NODE_TYPE_LIMIT_4, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	CCONST {
 					// printf("limit → CCONST\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
 					$$ = make_node("limit_5", NODE_TYPE_LIMIT_5, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	BCONST {
 					// printf("limit → BCONST\n");
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
 					$$ = make_node("limit_6", NODE_TYPE_LIMIT_6, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				}
 			| 	ID {
 					// printf("limit → ID\n");
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					if (!find_symbol(smbl)) {
+						printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						error_flag = 1;
+					}
 					$$ = make_node("limit_7", NODE_TYPE_LIMIT_7, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -379,9 +476,13 @@ typename:		standard_type {
 					// printf("typename → standard_type\n");
 					$$ = $1;
 				}
-			| 	ID{
+			| 	ID {
 					// printf("typename → ID\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					if (!find_symbol(smbl)) {
+						printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						error_flag = 1;
+					}
 					$$ = make_node("typename", NODE_TYPE_TYPENAME, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -418,12 +519,14 @@ field:			identifiers COLON typename {
 
 identifiers:	identifiers COMMA ID { 
 					// printf("identifiers → identifiers COMMA ID\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					add_symbol(smbl);
 					$$ = make_node("identifiers_0", NODE_TYPE_IDENTIFIERS_0, smbl, $1, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	ID {
 					// printf("identifiers → ID\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					add_symbol(smbl);
 					$$ = make_node("identifiers_1", NODE_TYPE_IDENTIFIERS_1, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -465,17 +568,20 @@ subprogram	:	sub_header SEMI T_FORWARD {
 
 sub_header:		T_FUNCTION ID formal_parameters COLON standard_type {
 					// printf("sub_header → T_FUNCTION ID formal_parameters COLON standard_type\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					add_symbol(smbl);
 					$$ = make_node("sub_header_0", NODE_TYPE_SUB_HEADER_0, smbl, $3, $5, NULL, NULL, NULL, NULL);
 				}
 			|	T_PROCEDURE ID formal_parameters { 
 					// printf("sub_header → T_PROCEDURE ID formal_parameters\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					add_symbol(smbl);
 					$$ = make_node("sub_header_1", NODE_TYPE_SUB_HEADER_1, smbl, $3, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	T_FUNCTION ID { 
 					// printf("sub_header → T_FUNCTION ID\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					add_symbol(smbl);
 					$$ = make_node("sub_header_2", NODE_TYPE_SUB_HEADER_2, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -559,12 +665,18 @@ statement:		assignment {
 				};
 
 assignment:		variable ASSIGN expression {
-					// printf("assignment → variable ASSIGN expression\n"); 
+					// printf("assignment → variable ASSIGN expression\n");
+					// symbol* smbl = new_symbol("");
+					// if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_11)) {
+					// 	printf("error at line %d: invalid operand types %d and %d for \"variable ASSIGN expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+					// 	error_flag = 1;
+					// }
+					// $$ = make_node("assignment_0", NODE_TYPE_ASSIGNMENT_0, smbl, $1, $3, NULL, NULL, NULL, NULL);
 					$$ = make_node("assignment_0", NODE_TYPE_ASSIGNMENT_0, NULL, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			| 	variable ASSIGN STRING {
 					// printf("assignment → variable ASSIGN STRING\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
 					$$ = make_node("assignment_1", NODE_TYPE_ASSIGNMENT_1, smbl, $1, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -584,7 +696,11 @@ while_statement:	T_WHILE expression T_DO statement {
 
 for_statement:	T_FOR ID ASSIGN iter_space T_DO statement {
 					// printf("for_statement → T_FOR ID ASSIGN iter_space T_DO statement\n");
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
+					if (!find_symbol(smbl)) {
+						printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						error_flag = 1;
+					}
 					$$ = make_node("for_statement", NODE_TYPE_FOR_STATEMENT, smbl, $4, $6, NULL, NULL, NULL, NULL);
 				};
 
@@ -605,13 +721,38 @@ with_statement:	T_WITH variable T_DO statement {
 
 subprogram_call:	ID {
 						//  printf("subprogram_call → ID\n");
-						symbol* smbl = new_symbol(pop_yytext_stack());
+						symbol* smbl = new_symbol(pop(yytext_stack));
+						if (!find_symbol(smbl)) {
+							printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+							error_flag = 1;
+						}
 						$$ = make_node("subprogram_call_0", NODE_TYPE_SUBPROGRAM_CALL_0, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
+
+						// if (find_symbol(smbl)) {
+						// 	$$ = make_node("subprogram_call_0", NODE_TYPE_SUBPROGRAM_CALL_0, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
+						// }
+						// else {
+						// 	printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						// 	error_flag = 1;
+						// }
 					}
 				| 	ID LPAREN expressions RPAREN{
 						// printf("subprogram_call → ID LPAREN expressions RPAREN\n");
-						symbol* smbl = new_symbol(pop_yytext_stack());
+						symbol* smbl = new_symbol(pop(yytext_stack));
+						
+						if (!find_symbol(smbl)) {
+							printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+							error_flag = 1;
+						}
 						$$ = make_node("subprogram_call_1", NODE_TYPE_SUBPROGRAM_CALL_1, smbl, $3, NULL, NULL, NULL, NULL, NULL);
+
+						// if (find_symbol(smbl)) {
+						// 	$$ = make_node("subprogram_call_1", NODE_TYPE_SUBPROGRAM_CALL_1, smbl, $3, NULL, NULL, NULL, NULL, NULL);
+						// }
+						// else {
+						// 	printf("error at line %d: undeclared symbol \"%s\"\n", yylineno, smbl->name);
+						// 	error_flag = 1;
+						// }
 					};
 
 io_statement:	T_READ LPAREN read_list RPAREN {
@@ -652,7 +793,7 @@ write_item:		expression {
 				}
 			| 	STRING {
 					// printf("write_item → STRING\n"); 
-					symbol* smbl = new_symbol(pop_yytext_stack());
+					symbol* smbl = new_symbol(pop(yytext_stack));
 					$$ = make_node("write_item", NODE_TYPE_WRITE_ITEM, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -660,12 +801,26 @@ write_item:		expression {
 
 int main () {
 	Symbol_free = NULL;
-
-	yytext_stack = (yytext_stack_struct *) malloc(sizeof(yytext_stack_struct));
+	initialize_hashtable(10);
+	yytext_stack = (stack_struct *) malloc(sizeof(stack_struct));
+	yytext_stack->type = STACK_TYPE_STRING;
+	registers_stack = (stack_struct *) malloc(sizeof(stack_struct));
+	registers_stack->type = STACK_TYPE_ICONST;
 	int ret = yyparse();
-	printf("\n--------------------\nAbstract Syntax Tree\n--------------------\n\n");
-	preorder_tree_traversal(ast_tree_root, 0);
-	printf("\n");
+	
+	if (error_flag) {
+		printf("\n[-] too many errors, exiting\n");
+		exit(1);
+	}
+	else {
+		printf("\n--------------------\nAbstract Syntax Tree\n--------------------\n\n");
+		preorder_tree_traversal(ast_tree_root, 0);
+		printf("\n\n\n");
+		hashtable_get();
+		printf("\n\n----\nCode\n----\n\n");
+		generate_code(ast_tree_root);
+		printf("\n");
+	}
   	return ret;
 }
 

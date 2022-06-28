@@ -4,7 +4,7 @@
 #define FALSE 0
 
 #define NAME_MAX  32
-#define MAX_YYTEXT_ITEMS 50
+#define MAX_STACK_ITEMS 100
 
 #define NODE_TYPE_PROGRAM 500
 #define NODE_TYPE_HEADER 501
@@ -38,9 +38,6 @@
 #define NODE_TYPE_EXPRESSIONS 529
 #define NODE_TYPE_CONSTANT_0 530
 #define NODE_TYPE_CONSTANT_1 531
-#define NODE_TYPE_CONSTANT_2 532
-#define NODE_TYPE_CONSTANT_3 533
-#define NODE_TYPE_CONSTANT_4 534
 #define NODE_TYPE_CONSTANT_5 535
 #define NODE_TYPE_CONSTANT_6 536
 #define NODE_TYPE_SETEXPRESSION_0 537
@@ -108,10 +105,18 @@
 #define NODE_TYPE_CHAR 599
 #define NODE_TYPE_VAR 600
 
-typedef struct yytext_stack_struct {
-	char* stack[MAX_YYTEXT_ITEMS];
-	int size;
-} yytext_stack_struct;
+#define SYMBOL_TYPE_ICONST 601
+#define SYMBOL_TYPE_RCONST 602
+#define SYMBOL_TYPE_BCONST 603
+#define SYMBOL_TYPE_CCONST 604
+
+#define STACK_TYPE_ICONST 605
+#define STACK_TYPE_RCONST 606
+#define STACK_TYPE_BCONST 607
+#define STACK_TYPE_CCONST 608
+#define STACK_TYPE_STRING 609
+
+
 
 typedef struct dcl_tag {
    int dcl_type;                    /* -- ARRAY -------------- */
@@ -119,12 +124,29 @@ typedef struct dcl_tag {
    struct dcl_tag *next_dcl_type;
 } dcl;
 
+union data {
+   int iconst;
+   double rconst;
+   int bconst;
+   char cconst;
+   char* str;
+} data; 
+
+typedef struct stack_struct {
+   // char* stack[MAX_STACK_ITEMS];
+	union data stack[MAX_STACK_ITEMS];
+   int type;
+	int size;
+} stack_struct;
+
 typedef struct symbol_tag {
-   unsigned char name[NAME_MAX+1];  /* -- Variable name .----- */
+   // unsigned char name[NAME_MAX+1];  /* -- Variable name .----- */
+   char* name;
    int sclass;                      /* -- REGISTER, CONSTANT,- */
                                     /* -- MEMORY, STACK. ----- */
    int typos;                       /* -- INT .--------------- */
    int timi;                        /* -- Value assigned . --- */
+   union data value;
    int has_timi;                    /* -- FALSE if no value .- */
    int comes_from;                  /* -- IDENTIFIER, INTCONST,*/
                                     /* -- ARRAYELEM, ARITHEXPR,*/
@@ -152,15 +174,20 @@ typedef struct parse_and_syntax_tree_tag {
 } parse_and_syntax_tree;
 
 void debug_yytext();
-// void remove_last_yytext_element();
 void preorder_tree_traversal(node *node, int depth);
 void print_tabs(int depth);
 
-yytext_stack_struct* yytext_stack;
+stack_struct* yytext_stack;
 
 symbol *Symbol_free; /* -- Symbol-list of recycled symbols -- */
 node* make_node(char* node_name, int node_type, symbol *symbol, node* node_0, node* node_1, node* node_2, node* node_3, node* node_4, node* node_5);
 node* make_node_id(char* node_name, int node_type, symbol *symbol);
 symbol *new_symbol(char *name);
-char* pop_yytext_stack();
-void push_yytext_stack(char* yytext);
+void parse_value(symbol* out_symbol, symbol* in_symbol, int type);
+char* pop(stack_struct* stack);
+void push_string(stack_struct* stack, char* yytext);
+void push_iconst(stack_struct* stack, int value);
+void print(stack_struct* stack);
+int evaluate_expression(symbol* smbl, symbol* s1, symbol* s2, int operation);
+void generate_code(node* node);
+void remove_at_index(stack_struct* stack, int index);

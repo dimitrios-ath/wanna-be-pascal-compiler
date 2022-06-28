@@ -4,7 +4,7 @@
 #include "src/defs.h"
 #include "y.tab.h"
 
-extern yytext_stack_struct* yytext_stack;
+extern stack_struct* yytext_stack;
 void yyerror(const char *);
 int id_or_keyword(char *s);
 %}
@@ -26,10 +26,7 @@ MULDIVANDOP_DIV_E DIV
 MULDIVANDOP_MOD MOD
 MULDIVANDOP_AND AND
 KEYWORD_OR_ID _?[a-zA-Z][a-zA-Z0-9_]*
-RCONST_REAL ((([1-9][0-9]*)|0|e?)\.(([0-9]*[1-9][0-9]*)|0)([E][+-]?(([1-9][0-9]*)|0))?)
-RCONST_INT (([1-9][0-9]*)|0|e?)E[+-]?[0-9]+
-RCONST_HEX 0H(([1-9A-F][0-9A-F]*)|0|e?)\.(([0-9A-F]*[1-9A-F][0-9A-F]*)|0)
-RCONST_BIN 0B((1[01]*)|0)\.(([01]*1[01]*)|0)
+RCONST (((([1-9][0-9]*)|0|e?)\.(([0-9]*[1-9][0-9]*)|0)([E][+-]?(([1-9][0-9]*)|0))?))|((([1-9][0-9]*)|0|e?)E[+-]?[0-9]+)|(0H(([1-9A-F][0-9A-F]*)|0|e?)\.(([0-9A-F]*[1-9A-F][0-9A-F]*)|0))|(0B((1[01]*)|0)\.(([01]*1[01]*)|0))
 ICONST ((([1-9][0-9]*)|0))|(0H(([1-9A-F][0-9A-F]*)|0))|(0B((1[01]*)|0))
 BCONST TRUE|FALSE
 CCONST '((\\n)|(\\f)|(\\t)|(\\r)|(\\b)|(\\v)|[\x20-\x7E])'
@@ -51,39 +48,24 @@ NEWLINE [\n]
 ":="                { return ASSIGN; }
 ".."                { return DOTDOT; }
 {BCONST}            {
-                        push_yytext_stack(yytext);
+                        push_string(yytext_stack, yytext);
                         yylval.string = strdup(yytext);
                         return BCONST; 
                     }
 {CCONST}	        { 
-                        push_yytext_stack(yytext);
+                        push_string(yytext_stack, yytext);
                         yylval.string = strdup(yytext);
                         return CCONST;  
                     }
 {ICONST}	        { 
-                        push_yytext_stack(yytext);
+                        push_string(yytext_stack, yytext);
                         yylval.string = strdup(yytext);
                         return ICONST; 
                     }
-{RCONST_REAL}	    {   
-                        push_yytext_stack(yytext);
+{RCONST}	        {   
+                        push_string(yytext_stack, yytext);
                         yylval.string = strdup(yytext);
-                        return RCONST_REAL; 
-                    }
-{RCONST_INT}	    { 
-                        push_yytext_stack(yytext);
-                        yylval.string = strdup(yytext);
-                        return RCONST_INT; 
-                    }
-{RCONST_HEX}	    { 
-                        push_yytext_stack(yytext);
-                        yylval.string = strdup(yytext);
-                        return RCONST_HEX; 
-                    }
-{RCONST_BIN}	    {
-                        push_yytext_stack(yytext);
-                        yylval.string = strdup(yytext);
-                        return RCONST_BIN; 
+                        return RCONST;
                     }
 {RELOP_NE}          { return RELOP_NE; }
 {RELOP_LE}          { return RELOP_LE; }
@@ -100,13 +82,13 @@ NEWLINE [\n]
 {KEYWORD_OR_ID}	    {
                         int val = id_or_keyword(yytext);
                         if(val==ID) {
-                            push_yytext_stack(yytext);
+                            push_string(yytext_stack, yytext);
                             yylval.string = strdup(yytext); 
                         }
                         return(val);
                     }
 {STRING}	        {
-                        push_yytext_stack(yytext);
+                        push_string(yytext_stack, yytext);
                         yylval.string = strdup(yytext); 
                         return STRING; 
                     }
