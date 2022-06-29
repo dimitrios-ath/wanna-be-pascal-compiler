@@ -9,6 +9,7 @@ void yyerror(const char *s);
 int yylex();
 extern int yylineno;
 extern stack_struct* registers_stack;
+extern stack_struct* if_statement_stack;
 node* ast_tree_root;
 int error_flag = 0;
 
@@ -806,6 +807,8 @@ int main () {
 	yytext_stack->type = STACK_TYPE_STRING;
 	registers_stack = (stack_struct *) malloc(sizeof(stack_struct));
 	registers_stack->type = STACK_TYPE_ICONST;
+	if_statement_stack = (stack_struct *) malloc(sizeof(stack_struct));
+	if_statement_stack->type = STACK_TYPE_ICONST;
 	int ret = yyparse();
 	
 	if (error_flag) {
