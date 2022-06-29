@@ -29,7 +29,7 @@ void print_registers() {
 
 int pop_register_stack() {
 	int ret = registers_stack->stack[registers_stack->size-1].iconst;
-	set_register_state(registers_stack->size-1, FREE);
+	set_register_state(registers_stack->stack[registers_stack->size-1].iconst, FREE);
 	registers_stack->stack[--registers_stack->size].iconst = 0;
 	return ret;
 }
@@ -690,6 +690,7 @@ void generate_code(node* node) {
 				generate_code(node->nodes[1]); // NODE_TYPE_DECLARATIONS
 				printf(".text\n");
 				generate_code(node->nodes[2]); // subprograms
+				printf("\n.main\n");
 				generate_code(node->nodes[3]); // NODE_TYPE_COMP_STATEMENT
 				break;
 			case NODE_TYPE_HEADER:
@@ -842,7 +843,6 @@ void generate_code(node* node) {
 				generate_code(node->nodes[1]); // expression
 				int register_to_store = pop_register_stack();
 				printf("\tsw\t$t%d, %s\n", register_to_store, node->nodes[0]->symbol->name);
-				set_register_state(register_to_store, FREE);
 				break;
 			
 			case NODE_TYPE_IO_STATEMENT_1:
