@@ -29,6 +29,7 @@ void print_registers() {
 
 int pop_register_stack() {
 	int ret = registers_stack->stack[registers_stack->size-1].iconst;
+	set_register_state(registers_stack->size-1, FREE);
 	registers_stack->stack[--registers_stack->size].iconst = 0;
 	return ret;
 }
@@ -735,14 +736,16 @@ void generate_code(node* node) {
 					printf("\tli\t$t%d, %s\n", r2, node->nodes[1]->symbol->name);
 					push_iconst(registers_stack, r2);
 				}
+				
+				set_register_state(r1, FREE);
+				set_register_state(r2, FREE);
+
 				operand1 = pop_register_stack();
 				operand2 = pop_register_stack();
 				result_register = next_free_register();
 				printf("\tadd\t$t%d, $t%d, $t%d\n", result_register, operand1, operand2);
 				push_iconst(registers_stack, result_register);
-				set_register_state(r1, FREE);
-				set_register_state(r2, FREE);
-				set_register_state(result_register, FREE);
+				// set_register_state(result_register, FREE);
 				break;
 
 			case NODE_TYPE_EXPRESSION_9:
@@ -769,50 +772,55 @@ void generate_code(node* node) {
 					printf("\tli\t$t%d, %s\n", r2, node->nodes[1]->symbol->name);
 					push_iconst(registers_stack, r2);
 				}
+				
+				set_register_state(r1, FREE);
+				set_register_state(r2, FREE);
+
 				operand1 = pop_register_stack();
 				operand2 = pop_register_stack();
 				result_register = next_free_register();
 				printf("\tsub\t$t%d, $t%d, $t%d\n", result_register, operand2, operand1);
 				push_iconst(registers_stack, result_register);
-				set_register_state(r1, FREE);
-				set_register_state(r2, FREE);
-				set_register_state(result_register, FREE);
+				// set_register_state(result_register, FREE);
 				break;
 
-			// case NODE_TYPE_EXPRESSION_10:
-			// 	// printf("expression * expression\n");
-			// 	generate_code(node->nodes[0]); // expression
-			// 	generate_code(node->nodes[1]); // expression
+			case NODE_TYPE_EXPRESSION_10:
+				// printf("expression * expression\n");
+				generate_code(node->nodes[0]); // expression
+				generate_code(node->nodes[1]); // expression
 				
-			// 	r1 = next_free_register();
-			// 	if (node->nodes[0]->type == NODE_TYPE_VARIABLE_0) {
-			// 		printf("\tlw\t$t%d, %s\n", r1, node->nodes[0]->symbol->name); // OPERAND_1 VARIABLE
-			// 		push_iconst(registers_stack, r1);
-			// 	}
-			// 	else if (node->nodes[0]->type == NODE_TYPE_CONSTANT_0) {
-			// 		printf("\tli\t$t%d, %s\n", r1, node->nodes[0]->symbol->name); // OPERAND_1 ICONST
-			// 		push_iconst(registers_stack, r1);
-			// 	}
+				r1 = next_free_register();
+				if (node->nodes[0]->type == NODE_TYPE_VARIABLE_0) {
+					printf("\tlw\t$t%d, %s\n", r1, node->nodes[0]->symbol->name); // OPERAND_1 VARIABLE
+					push_iconst(registers_stack, r1);
+				}
+				else if (node->nodes[0]->type == NODE_TYPE_CONSTANT_0) {
+					printf("\tli\t$t%d, %s\n", r1, node->nodes[0]->symbol->name); // OPERAND_1 ICONST
+					push_iconst(registers_stack, r1);
+				}
 				
-			// 	r2 = next_free_register();
-			// 	if (node->nodes[1]->type == NODE_TYPE_VARIABLE_0) { // OPERAND_2 VARIABLE
-			// 		printf("\tlw\t$t%d, %s\n", r2, node->nodes[1]->symbol->name);
-			// 		push_iconst(registers_stack, r2);
-			// 	}
-			// 	else if (node->nodes[1]->type == NODE_TYPE_CONSTANT_0) { // OPERAND_2 ICONST
-			// 		printf("\tli\t$t%d, %s\n", r2, node->nodes[1]->symbol->name);
-			// 		push_iconst(registers_stack, r2);
-			// 	}
-			// 	operand1 = pop_register_stack();
-			// 	operand2 = pop_register_stack();
-			// 	result_register = next_free_register();
-			// 	printf("\tmul\t$t%d, $t%d, $t%d\n", result_register, operand1, operand2);
-			// 	push_iconst(registers_stack, result_register);
-			// 	set_register_state(r1, FREE);
-			// 	set_register_state(r2, FREE);
-			// 	set_register_state(result_register, FREE);
-			// 	print(registers_stack);
-			// 	break;
+				r2 = next_free_register();
+				if (node->nodes[1]->type == NODE_TYPE_VARIABLE_0) { // OPERAND_2 VARIABLE
+					printf("\tlw\t$t%d, %s\n", r2, node->nodes[1]->symbol->name);
+					push_iconst(registers_stack, r2);
+				}
+				else if (node->nodes[1]->type == NODE_TYPE_CONSTANT_0) { // OPERAND_2 ICONST
+					printf("\tli\t$t%d, %s\n", r2, node->nodes[1]->symbol->name);
+					push_iconst(registers_stack, r2);
+				}
+				
+				set_register_state(r2, FREE);
+				set_register_state(r1, FREE);
+
+				operand1 = pop_register_stack();
+				operand2 = pop_register_stack();
+				result_register = next_free_register();
+				printf("\tmul\t$t%d, $t%d, $t%d\n", result_register, operand1, operand2);
+				push_iconst(registers_stack, result_register);
+				// set_register_state(result_register, FREE);
+				// pop_register_stack();
+				// print(registers_stack);
+				break;
 
 			case NODE_TYPE_VARIABLE_0:
 				break;
@@ -834,6 +842,7 @@ void generate_code(node* node) {
 				generate_code(node->nodes[1]); // expression
 				int register_to_store = pop_register_stack();
 				printf("\tsw\t$t%d, %s\n", register_to_store, node->nodes[0]->symbol->name);
+				set_register_state(register_to_store, FREE);
 				break;
 			
 			case NODE_TYPE_IO_STATEMENT_1:
