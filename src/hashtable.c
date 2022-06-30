@@ -103,6 +103,7 @@ void hashtable_get()
 					break;
 				default:
 					printf("| %-15s | %-15s | %-10s |\n", slot->symbol->name, "UNKNOWN", "UNKNOWN"); 
+					// printf("%s type %d\n", slot->symbol->name, slot->symbol->typos);
 				}
 			}
 			slot = slot->next;

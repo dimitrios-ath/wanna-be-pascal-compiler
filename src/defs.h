@@ -116,6 +116,7 @@
 #define STACK_TYPE_CCONST 608
 #define STACK_TYPE_STRING 609
 
+#define SYMBOL_TYPE_STRING 610
 
 
 typedef struct dcl_tag {

@@ -10,6 +10,7 @@ int yylex();
 extern int yylineno;
 extern stack_struct* registers_stack;
 extern stack_struct* if_statement_stack;
+extern stack_struct* while_statement_stack;
 node* ast_tree_root;
 int error_flag = 0;
 
@@ -88,6 +89,7 @@ constant_defs:	constant_defs SEMI ID EQU expression {
 					symbol* smbl = new_symbol(pop(yytext_stack));
 					add_symbol(smbl);
 					if ($5->symbol) {
+						// parse_value(smbl, $5->symbol, $5->type);
 						parse_value(smbl, $5->symbol, $5->type);
 					}
 					$$ = make_node("constant_defs_0", NODE_TYPE_CONSTANT_DEFS_0, smbl, $1, $5, NULL, NULL, NULL, NULL);
@@ -104,27 +106,57 @@ constant_defs:	constant_defs SEMI ID EQU expression {
 
 expression:		expression RELOP_NE expression {
 					// printf("expression → expression RELOP expression\n"); 
-					$$ = make_node("expression_0", NODE_TYPE_EXPRESSION_0, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_0)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression RELOP_NE expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_0", NODE_TYPE_EXPRESSION_0, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			| 	expression RELOP_GE expression { 
 					// printf("expression → expression RELOP expression\n");
-					$$ = make_node("expression_1", NODE_TYPE_EXPRESSION_1, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_1)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression RELOP_GE expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_1", NODE_TYPE_EXPRESSION_1, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression RELOP_LE expression {
 					// printf("expression → expression RELOP expression\n"); 
-					$$ = make_node("expression_2", NODE_TYPE_EXPRESSION_2, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_2)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression RELOP_LE expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_2", NODE_TYPE_EXPRESSION_2, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression RELOP_LT expression {
 					// printf("expression → expression RELOP expression\n"); 
-					$$ = make_node("expression_3", NODE_TYPE_EXPRESSION_3, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_3)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression RELOP_LT expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_3", NODE_TYPE_EXPRESSION_3, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression RELOP_GT expression { 
 					// printf("expression → expression RELOP expression\n"); 
-					$$ = make_node("expression_4", NODE_TYPE_EXPRESSION_4, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_4)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression RELOP_GT expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_4", NODE_TYPE_EXPRESSION_4, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression EQU expression {
 					// printf("expression → expression EQU expression\n");
-					$$ = make_node("expression_5", NODE_TYPE_EXPRESSION_5, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_5)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression EQU expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_5", NODE_TYPE_EXPRESSION_5, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression INOP expression {
 					// printf("expression → expression INOP expression\n");
@@ -132,7 +164,12 @@ expression:		expression RELOP_NE expression {
 				}
 			|	expression OROP expression {
 					// printf("expression → expression OROP expression\n"); 
-					$$ = make_node("expression_7", NODE_TYPE_EXPRESSION_7, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_7)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression OROP expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_7", NODE_TYPE_EXPRESSION_7, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	expression ADDOP_ADD expression	{
 					// printf("expression → expression ADDOP expression\n");
@@ -190,7 +227,12 @@ expression:		expression RELOP_NE expression {
 				}
 			|	expression MULDIVANDOP_AND expression {
 					// printf("expression → expression MULDIVANDOP expression\n");
-					$$ = make_node("expression_14", NODE_TYPE_EXPRESSION_14, NULL, $1, $3, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $1->symbol, $3->symbol, NODE_TYPE_EXPRESSION_14)) {
+						printf("error at line %d: invalid operand types %d and %d for \"expression MULDIVANDOP_AND expression\"\n", yylineno, $1->symbol->typos, $3->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_14", NODE_TYPE_EXPRESSION_14, smbl, $1, $3, NULL, NULL, NULL, NULL);
 				}
 			|	ADDOP_ADD expression {
 					// printf("expression → ADDOP expression\n");
@@ -214,7 +256,14 @@ expression:		expression RELOP_NE expression {
 				}
 			|	NOTOP expression {
 					// printf("expression → NOTOP expression\n"); 
-					$$ = make_node("expression_17", NODE_TYPE_EXPRESSION_17, NULL, $2, NULL, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $2->symbol, NULL, NODE_TYPE_EXPRESSION_17)) {
+						if ($2->symbol) { // TODO CHECK _all(-y[x[0]],xx[y[x[x2]]]);
+							printf("error at line %d: invalid operand type %d for \"NOTOP expression\"\n", yylineno, $2->symbol->typos);
+							error_flag = 1;
+						}
+					}
+					$$ = make_node("expression_17", NODE_TYPE_EXPRESSION_17, smbl, $2, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	variable {
 					// printf("expression → variable\n"); 
@@ -243,13 +292,13 @@ expression:		expression RELOP_NE expression {
 				}
 			|	LPAREN expression RPAREN {
 					// printf("expression → LPAREN expression RPAREN\n");
-					// symbol* smbl = new_symbol("");
-					// if (!evaluate_expression(smbl, $2->symbol, NULL, NODE_TYPE_EXPRESSION_19)) {
-					// 	printf("error at line %d: invalid operand type %d for \"(expression)\"\n", yylineno, $2->symbol->typos);
-					// 	error_flag = 1;
-					// }
-					// $$ = make_node("expression_19", NODE_TYPE_EXPRESSION_19, smbl, $2, NULL, NULL, NULL, NULL, NULL);
-					$$ = make_node("expression_19", NODE_TYPE_EXPRESSION_19, NULL, $2, NULL, NULL, NULL, NULL, NULL);
+					symbol* smbl = new_symbol("");
+					if (!evaluate_expression(smbl, $2->symbol, NULL, NODE_TYPE_EXPRESSION_19)) {
+						printf("error at line %d: invalid operand type %d for \"(expression)\"\n", yylineno, $2->symbol->typos);
+						error_flag = 1;
+					}
+					$$ = make_node("expression_19", NODE_TYPE_EXPRESSION_19, smbl, $2, NULL, NULL, NULL, NULL, NULL);
+					// $$ = make_node("expression_19", NODE_TYPE_EXPRESSION_19, NULL, $2, NULL, NULL, NULL, NULL, NULL);
 				}
 			|	setexpression{
 					// printf("expression → setexpression\n"); 
@@ -793,8 +842,9 @@ write_item:		expression {
 					$$ = $1;
 				}
 			| 	STRING {
-					// printf("write_item → STRING\n"); 
+					// printf("write_item → STRING\n");
 					symbol* smbl = new_symbol(pop(yytext_stack));
+					smbl->typos = SYMBOL_TYPE_STRING;
 					$$ = make_node("write_item", NODE_TYPE_WRITE_ITEM, smbl, NULL, NULL, NULL, NULL, NULL, NULL);
 				};
 
@@ -809,9 +859,13 @@ int main () {
 	registers_stack->type = STACK_TYPE_ICONST;
 	if_statement_stack = (stack_struct *) malloc(sizeof(stack_struct));
 	if_statement_stack->type = STACK_TYPE_ICONST;
+	while_statement_stack = (stack_struct *) malloc(sizeof(stack_struct));
+	while_statement_stack->type = STACK_TYPE_ICONST;
 	int ret = yyparse();
 	
 	if (error_flag) {
+		printf("\n\n\n");
+		hashtable_get();
 		printf("\n[-] too many errors, exiting\n");
 		exit(1);
 	}

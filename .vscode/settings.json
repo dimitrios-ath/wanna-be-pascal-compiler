@@ -26,6 +26,9 @@
         "deque": "c",
         "initializer_list": "c",
         "queue": "c",
-        "unordered_map": "c"
+        "unordered_map": "c",
+        "sstream": "c",
+        "__bit_reference": "c",
+        "__memory": "c"
     }
 }
